@@ -1,0 +1,10 @@
+[project]
+name = "iww-route-assignment"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "jupyter>=1.1.1",
+    "pandas>=3.0.5",
+]
