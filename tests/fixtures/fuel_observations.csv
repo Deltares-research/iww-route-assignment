@@ -1,0 +1,7 @@
+source_row_id,vessel_rws_class,waterway_cemt_class,vessel_profile,diesel_light_l_per_h,diesel_medium_l_per_h,diesel_heavy_l_per_h,source_dataset
+general:M1:I,M1,I,general,40,60,80,synthetic-test
+general:M1:Va,M1,Va,general,60,80,100,synthetic-test
+container:M1:I,M1,I,container,30,50,70,synthetic-test
+general:M2:II,M2,II,general,80,100,120,synthetic-test
+general:M2:Va,M2,Va,general,100,120,140,synthetic-test
+

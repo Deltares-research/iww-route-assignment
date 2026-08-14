@@ -1,0 +1,2 @@
+case_row_id,arc_id,appearance,vessel_rws_class,waterway_cemt_class,vessel_profile,loading_ratio,distance_km,realised_speed_km_per_h,cargo_t,is_loaded,lock_service_time_h,lock_waiting_time_h,bridge_service_time_h,real_delay_time_h,calibration_delay_time_h,relaxation_penalty_time_h
+
