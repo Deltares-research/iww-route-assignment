@@ -33,7 +33,7 @@ Every document in the repository is listed here. If a page is not in this table,
 | Reference-data status | [`data/README.md`](../data/README.md) | Why is the fuel table absent and what replaces it. |
 | Agent guidance | [`CLAUDE.md`](../CLAUDE.md) | Which rules apply when changing this repository. |
 
-The external IWW design folder contains dated modelling documents and implementation plans. It is not part of this repository.
+The external IWW design folder contains dated modelling documents and implementation plans. It is not part of this repository. Its overview is `IWW\model\README.md`, and the procedure for running a cost estimation on real data is `IWW\model\instructions\<yyyymmdd>_cost_function_run.md`.
 
 [Back to contents](#contents)
 
@@ -42,6 +42,7 @@ The external IWW design folder contains dated modelling documents and implementa
 | I want to | Start at |
 | --- | --- |
 | Run a first calculation | [Examples](examples.md#synthetic-repository-example) |
+| Run a cost estimation on real data | External `IWW\model\instructions\<yyyymmdd>_cost_function_run.md` |
 | Set up a case of my own | [Case configuration](configuration.md) |
 | Understand a run option such as `fuel_policy` | [Enumerations](enumerations.md#fuel-resolution-policy) |
 | Fix a rejected input file | [Data contracts](data-contracts.md) and [schemas](../schemas/README.md) |
