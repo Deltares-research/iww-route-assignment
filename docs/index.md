@@ -31,7 +31,6 @@ Every document in the repository is listed here. If a page is not in this table,
 | Development | [`docs/development.md`](development.md) | How do I set up, check and build the package. |
 | Schema templates | [`schemas/README.md`](../schemas/README.md) | What is each header-only CSV template for. |
 | Reference-data status | [`data/README.md`](../data/README.md) | Why is the fuel table absent and what replaces it. |
-| Agent guidance | [`CLAUDE.md`](../CLAUDE.md) | Which rules apply when changing this repository. |
 
 The external IWW design folder contains dated modelling documents and implementation plans. It is not part of this repository. Its overview is `IWW\model\README.md`, and the procedure for running a cost estimation on real data is `IWW\model\instructions\<yyyymmdd>_cost_function_run.md`.
 

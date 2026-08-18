@@ -44,7 +44,7 @@ Install the wheel in a clean virtual environment and run the synthetic example b
 
 ## Change rules
 
-- Preserve package boundaries in `CLAUDE.md`.
+- Preserve the package boundaries described in [Architecture](architecture.md#dependency-rules).
 - Update model and data-contract documentation with behaviour changes.
 - Document a new enumeration member in [Enumerations](enumerations.md) in the same change that adds it.
 - Register every new document in the [documentation map](index.md#documentation-map), so the set stays findable from one place.
