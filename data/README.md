@@ -6,3 +6,6 @@ Use `prepare_notebook_fuel_observations` to create a profile-aware table with `i
 
 The source, units and redistribution rights of the notebook-derived values require confirmation. The MIT code licence does not establish permission to redistribute these data. Do not commit, package or publish the generated table until that review is complete.
 
+The required column contract is in [Fuel observations](../docs/data-contracts.md#fuel-observations), and a header-only template is in [`schemas/`](../schemas/README.md).
+
+

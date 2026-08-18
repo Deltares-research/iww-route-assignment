@@ -43,3 +43,14 @@ class Confidence(StrEnum):
     MEDIUM = "medium"
     LOW = "low"
     FALLBACK = "fallback"
+
+
+class TripRejectionReason(StrEnum):
+    """Reason a source trip record could not become an arc-cost request."""
+
+    UNKNOWN_VESSEL_TYPE = "unknown_vessel_type"
+    MISSING_ROUTE_PROFILE = "missing_route_profile"
+    MISSING_CARGO_WEIGHT = "missing_cargo_weight"
+    NON_POSITIVE_CAPACITY = "non_positive_capacity"
+    UNKNOWN_APPEARANCE = "unknown_appearance"
+    INVALID_REQUEST = "invalid_request"

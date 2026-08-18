@@ -46,6 +46,9 @@ Install the wheel in a clean virtual environment and run the synthetic example b
 
 - Preserve package boundaries in `CLAUDE.md`.
 - Update model and data-contract documentation with behaviour changes.
+- Document a new enumeration member in [Enumerations](enumerations.md) in the same change that adds it.
+- Register every new document in the [documentation map](index.md#documentation-map), so the set stays findable from one place.
+- Update the matching template in `schemas/` when a required column changes.
 - Do not add production data or private paths.
 - Record assumptions and source provenance.
 - Keep the readable scalar path and batch path equivalent.

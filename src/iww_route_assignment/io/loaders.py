@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-import pandas as pd
-
 from ..costs.fuel import TableFuelConsumptionProvider
 from ..domain.classifications import normalise_rws_class
 from ..domain.enums import FuelResolutionPolicy
@@ -18,6 +16,10 @@ from ..domain.models import (
     VesselReference,
 )
 from ..exceptions import ValidationError
+from ._frames import number_value as _number
+from ._frames import read_csv_table as _read_csv
+from ._frames import require_columns as _require_columns
+from ._frames import text_value as _text
 
 _FUEL_COLUMNS = {
     "source_row_id",
@@ -159,52 +161,6 @@ def load_fuel_provider(
         loading_anchors=loading_anchors or LoadingAnchors(),
         proxy_weights=proxy_weights or FuelProxyWeights(),
     )
-
-
-def _read_csv(path: str | Path) -> pd.DataFrame:
-    source = Path(path)
-    if not source.is_file():
-        raise ValidationError(f"CSV file does not exist: {source}")
-    try:
-        table = pd.read_csv(source, dtype_backend="numpy_nullable")
-    except Exception as error:
-        raise ValidationError(f"Could not read CSV file {source}: {error}") from error
-    generated_index_columns = [
-        str(column) for column in table.columns if str(column).startswith("Unnamed:")
-    ]
-    if generated_index_columns:
-        raise ValidationError(
-            f"CSV file {source} contains generated index columns {generated_index_columns}; "
-            "write normalised files with index=False"
-        )
-    if table.empty:
-        raise ValidationError(f"CSV file contains no data rows: {source}")
-    return table
-
-
-def _require_columns(table: pd.DataFrame, required: set[str], table_name: str) -> None:
-    missing = sorted(required.difference(str(column) for column in table.columns))
-    if missing:
-        raise ValidationError(f"{table_name} is missing required columns: {', '.join(missing)}")
-
-
-def _text(row: pd.Series, column: str) -> str:
-    value = row[column]
-    if pd.isna(value):
-        raise ValidationError(f"Column {column!r} contains a missing value")
-    return str(value)
-
-
-def _number(row: pd.Series, column: str) -> float:
-    value = row[column]
-    if pd.isna(value):
-        raise ValidationError(f"Column {column!r} contains a missing value")
-    try:
-        return float(value)
-    except (TypeError, ValueError) as error:
-        raise ValidationError(
-            f"Column {column!r} contains a non-numeric value {value!r}"
-        ) from error
 
 
 def _reject_duplicate_cost_keys(rates: tuple[CostRates, ...]) -> None:

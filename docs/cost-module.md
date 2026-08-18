@@ -25,7 +25,7 @@ c_h = c_{labour} + c_{maint,h} + c_{insurance} + r\,c_{interest,\%,h}
     + c_{depreciation} + c_{port} + c_{other}
 $$
 
-The interest rate $r$ uses percentage points. Enter 3 for 3 per cent.
+The interest rate $r$ uses percentage points. Enter 3 for 3 per cent. It is a scenario assumption, and it enters the calculation in exactly two places: the per-arc `interest_cost_eur` component above, and the hourly rate $c_h$ that monetises route-choice-only time. It never enters the trip fixed cost, the distance cost or any fuel term. See [where each scenario parameter is used](configuration.md#where-each-scenario-parameter-is-used).
 
 Arc cost:
 
@@ -57,6 +57,8 @@ The audited policy uses:
 3. nearest observed waterway boundary;
 4. nearest same-family vessel;
 5. nearest cross-family vessel if needed.
+
+The `strict` policy allows steps 1 and 2 only and raises `FuelCoverageError` otherwise. Every option, the method and confidence label it produces, and the proxy weights are tabulated in [Enumerations](enumerations.md#fuel-resolution-policy). Select the policy with `run.fuel_policy` in a [case configuration](configuration.md#run-section).
 
 Nearest-boundary selection does not extrapolate a trend. Every result contains selected keys, source rows, fractions, proxy-distance terms, method and confidence.
 

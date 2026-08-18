@@ -11,6 +11,7 @@ from .enums import (
     Confidence,
     FuelResolutionMethod,
     LoadingCategory,
+    TripRejectionReason,
     VesselProfile,
 )
 
@@ -364,3 +365,147 @@ class TripCostBreakdown:
     reported_total_cost_eur: float
     arc_choice_cost_eur: float
     choice_total_cost_eur: float
+
+
+@dataclass(frozen=True, slots=True)
+class TripObservation:
+    """One observed origin-destination voyage from a trip register such as IVS."""
+
+    source_row_id: str
+    origin_locode: str
+    destination_locode: str
+    vessel_type_id: int
+    capacity_t: float
+    cargo_t: float | None
+    containers_teu: float
+    cargo_code: str
+    source_dataset: str
+    loading_code: str = ""
+    observed_on: str = ""
+
+    def __post_init__(self) -> None:
+        for name in ("source_row_id", "origin_locode", "destination_locode", "source_dataset"):
+            object.__setattr__(self, name, _required_text(name, getattr(self, name)))
+        object.__setattr__(self, "origin_locode", self.origin_locode.upper())
+        object.__setattr__(self, "destination_locode", self.destination_locode.upper())
+        object.__setattr__(self, "cargo_code", self.cargo_code.strip())
+        object.__setattr__(self, "loading_code", self.loading_code.strip())
+        object.__setattr__(self, "observed_on", self.observed_on.strip())
+        if not isinstance(self.vessel_type_id, int) or isinstance(self.vessel_type_id, bool):
+            raise ValidationError(
+                f"vessel_type_id must be an int; received {self.vessel_type_id!r}"
+            )
+        for name in ("capacity_t", "containers_teu"):
+            _finite_non_negative(name, getattr(self, name))
+        if self.cargo_t is not None:
+            _finite_non_negative("cargo_t", self.cargo_t)
+
+
+@dataclass(frozen=True, slots=True)
+class AppearanceRule:
+    """One cargo-code to appearance rule with its own source label."""
+
+    appearance: str
+    source: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "appearance", _required_text("appearance", self.appearance))
+        object.__setattr__(self, "source", _required_text("source", self.source))
+
+
+@dataclass(frozen=True, slots=True)
+class RouteProfile:
+    """Route attributes attached to one origin-destination pair."""
+
+    origin_locode: str
+    destination_locode: str
+    distance_km: float
+    waterway_cemt_class: str
+    realised_speed_km_per_h: float
+    source: str
+
+    def __post_init__(self) -> None:
+        for name in ("origin_locode", "destination_locode", "source"):
+            object.__setattr__(self, name, _required_text(name, getattr(self, name)))
+        object.__setattr__(self, "origin_locode", self.origin_locode.upper())
+        object.__setattr__(self, "destination_locode", self.destination_locode.upper())
+        object.__setattr__(
+            self, "waterway_cemt_class", normalise_cemt_class(self.waterway_cemt_class)
+        )
+        _finite_positive("distance_km", self.distance_km)
+        _finite_positive("realised_speed_km_per_h", self.realised_speed_km_per_h)
+
+    @property
+    def key(self) -> tuple[str, str]:
+        """Return the origin-destination key used for deterministic lookup."""
+        return (self.origin_locode, self.destination_locode)
+
+
+@dataclass(frozen=True, slots=True)
+class ArcCostRequest:
+    """One arc-cost request with the provenance of every derived field."""
+
+    case_row_id: str
+    arc_id: str
+    appearance: str
+    vessel_rws_class: str
+    waterway_cemt_class: str
+    loading_ratio: float
+    distance_km: float
+    realised_speed_km_per_h: float
+    cargo_t: float
+    is_loaded: bool
+    source_row_id: str
+    vessel_class_source: str
+    appearance_source: str
+    route_source: str
+    loading_ratio_source: str
+    notes: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        for name in (
+            "case_row_id",
+            "arc_id",
+            "appearance",
+            "source_row_id",
+            "vessel_class_source",
+            "appearance_source",
+            "route_source",
+            "loading_ratio_source",
+        ):
+            object.__setattr__(self, name, _required_text(name, getattr(self, name)))
+        object.__setattr__(self, "vessel_rws_class", normalise_rws_class(self.vessel_rws_class))
+        object.__setattr__(
+            self, "waterway_cemt_class", normalise_cemt_class(self.waterway_cemt_class)
+        )
+        if not isfinite(self.loading_ratio) or not 0 <= self.loading_ratio <= 1:
+            raise ValidationError(
+                f"loading_ratio must be finite and between 0 and 1; received {self.loading_ratio!r}"
+            )
+        _finite_positive("distance_km", self.distance_km)
+        _finite_positive("realised_speed_km_per_h", self.realised_speed_km_per_h)
+        _finite_non_negative("cargo_t", self.cargo_t)
+        if not isinstance(self.is_loaded, bool):
+            raise ValidationError("is_loaded must be a bool")
+        if not self.is_loaded and self.cargo_t > 0:
+            raise ValidationError("An empty trip cannot carry positive cargo_t")
+
+
+@dataclass(frozen=True, slots=True)
+class TripRejection:
+    """A source trip record excluded from the case, with an auditable reason."""
+
+    source_row_id: str
+    reason: TripRejectionReason
+    detail: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "source_row_id", _required_text("source_row_id", self.source_row_id)
+        )
+        try:
+            reason = TripRejectionReason(self.reason)
+        except ValueError as error:
+            raise ValidationError(f"Unsupported rejection reason {self.reason!r}") from error
+        object.__setattr__(self, "reason", reason)
+        object.__setattr__(self, "detail", _required_text("detail", self.detail))

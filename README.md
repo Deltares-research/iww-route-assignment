@@ -44,7 +44,20 @@ OpenTNSim is not a core dependency.
 
 ## Documentation
 
-Start with the [documentation map](docs/index.md). See the [cost formula](docs/cost-module.md), [data contracts](docs/data-contracts.md), [examples](docs/examples.md) and [development guide](docs/development.md).
+Start with the [documentation map](docs/index.md), which indexes every document in the repository and offers a find-by-task table.
+
+Most used pages:
+
+| Page | Answers |
+| --- | --- |
+| [Cost module](docs/cost-module.md) | Which formulas are applied. |
+| [Case configuration](docs/configuration.md) | How to write a run TOML and what each key does. |
+| [Data contracts](docs/data-contracts.md) | Which CSV columns are required and what each one drives. |
+| [Enumerations](docs/enumerations.md) | Which option values exist and what each one means. |
+| [Examples](docs/examples.md) | How to run the example, a case and the benchmark. |
+| [Development](docs/development.md) | How to set up, check and build. |
+
+Header-only CSV templates for every input table are in [`schemas/`](schemas/README.md).
 
 [Back to contents](#contents)
 
