@@ -1,0 +1,6 @@
+rws_class,cemt_class,capacity_t,beam_m,length_m,draught_loaded_m,draught_empty_m
+M1,I,350,5.05,38.5,2.2,1.0
+M2,II,550,6.6,50.0,2.5,1.2
+M3,III,700,7.2,60.0,2.6,1.2
+BII-6b,VIc,18000,34.2,270.0,4.0,1.8
+

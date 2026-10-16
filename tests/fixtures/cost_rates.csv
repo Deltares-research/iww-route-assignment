@@ -1,0 +1,4 @@
+appearance,rws_class,labor_h,labor_wait_h,maint_h,maint_km,insurance_h,interest_pct_h,depreciation_h,harbor_h,other_h,load_t,unload_t,source
+Dry bulk,M1,10,7,2,3,1,0.5,4,5,6,2,3,synthetic-test
+Container,M1,12,8,2.5,3.5,1.5,0.6,4.5,5.5,6.5,2.5,3.5,synthetic-test
+

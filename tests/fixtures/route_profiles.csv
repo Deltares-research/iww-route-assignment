@@ -1,0 +1,4 @@
+origin_locode,destination_locode,distance_km,waterway_cemt_class,realised_speed_km_per_h,source
+NLAAA,NLBBB,50.0,Va,12.0,synthetic-test
+NLBBB,NLCCC,30.0,IV,10.0,synthetic-test
+
