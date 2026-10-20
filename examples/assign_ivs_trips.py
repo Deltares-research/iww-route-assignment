@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from iww_route_assignment.assign_new import assign_traffic
+from iww_route_assignment.assign import assign_traffic
 from iww_route_assignment.domain.classifications import (
     load_shiptypes,
     normalise_cemt_class,
