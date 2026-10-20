@@ -4,6 +4,7 @@ from .costs import (
     FallbackFuelConsumptionProvider,
     FuelConsumptionProvider,
     TableFuelConsumptionProvider,
+    calculate_arc_choice_time_h,
     calculate_arc_cost,
     calculate_arc_costs,
     calculate_trip_fixed_cost,
@@ -24,6 +25,7 @@ from .domain import (
     LoadingAnchors,
     LoadingCategory,
     ResolvedFuelRate,
+    RouteCostMetric,
     RouteProfile,
     ScenarioCostParameters,
     TripCostBreakdown,
@@ -51,6 +53,7 @@ from .preparation import (
     summarise_trip_conversion,
     trips_to_arc_requests,
 )
+from .routing_costs import RoutePricing, RoutingCostConfig, VoyageCostModel
 
 __all__ = [
     "CEMT_ORDER",
@@ -74,7 +77,10 @@ __all__ = [
     "LoadingAnchors",
     "LoadingCategory",
     "ResolvedFuelRate",
+    "RouteCostMetric",
+    "RoutePricing",
     "RouteProfile",
+    "RoutingCostConfig",
     "ScenarioCostParameters",
     "TableFuelConsumptionProvider",
     "TripConversionResult",
@@ -87,8 +93,10 @@ __all__ = [
     "ValidationError",
     "VesselProfile",
     "VesselReference",
+    "VoyageCostModel",
     "build_route_index",
     "build_vessel_type_index",
+    "calculate_arc_choice_time_h",
     "calculate_arc_cost",
     "calculate_arc_costs",
     "calculate_trip_fixed_cost",

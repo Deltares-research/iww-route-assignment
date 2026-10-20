@@ -45,6 +45,13 @@ class Confidence(StrEnum):
     FALLBACK = "fallback"
 
 
+class RouteCostMetric(StrEnum):
+    """Quantity minimised when choosing a route for a vessel."""
+
+    TRAVEL_TIME = "travel_time"
+    TRAVEL_COST_EUR = "travel_cost_eur"
+
+
 class TripRejectionReason(StrEnum):
     """Reason a source trip record could not become an arc-cost request."""
 
