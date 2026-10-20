@@ -30,6 +30,24 @@ def calculate_arc_cost(
     return calculate_arc_costs((arc,), rates, scenario, (fuel,))[0]
 
 
+def calculate_arc_choice_time_h(arc: ArcTravelInput) -> float:
+    """Return the route-choice time of one arc without needing rates or fuel.
+
+    The value equals ``ArcCostBreakdown.choice_time_h``: movement time, reported
+    fixed times and the choice-only calibration and relaxation times.
+    """
+    movement_time = float(arc.distance_km) / float(arc.realised_speed_km_per_h)
+    return (
+        movement_time
+        + arc.lock_service_time_h
+        + arc.lock_waiting_time_h
+        + arc.bridge_service_time_h
+        + arc.real_delay_time_h
+        + arc.calibration_delay_time_h
+        + arc.relaxation_penalty_time_h
+    )
+
+
 def calculate_arc_costs(
     arcs: Sequence[ArcTravelInput],
     rates: CostRates,

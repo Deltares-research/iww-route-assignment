@@ -6,7 +6,8 @@
 2. [Formula](#formula)
 3. [Fuel resolution](#fuel-resolution)
 4. [Reported and choice values](#reported-and-choice-values)
-5. [Known assumptions](#known-assumptions)
+5. [Route assignment](#route-assignment)
+6. [Known assumptions](#known-assumptions)
 
 ## Scope
 
@@ -70,6 +71,19 @@ Reported time and cost include physical delays. Choice time adds calibration and
 
 [Back to contents](#contents)
 
+## Route assignment
+
+`iww_route_assignment.routing_costs` connects the calculators to route assignment. `RoutingCostConfig` holds the run-level inputs (cost rates, fuel provider, scenario and `RouteCostMetric`). Its `voyage_model` method builds a `VoyageCostModel` for one voyage group. The model resolves the cost-rate row from the cargo appearance and vessel class, derives the loading ratio, and caches the fuel rate per waterway class.
+
+`RouteCostMetric` selects what the route search minimises:
+
+- `TRAVEL_TIME`: choice time in hours (`calculate_arc_choice_time_h`). It needs no fuel or rate lookup. If the cost inputs of a group cannot be resolved, the group is still routed and reported without costs.
+- `TRAVEL_COST_EUR`: choice cost in EUR. A group whose cost inputs cannot be resolved is not routed and is reported as `cost_fail`.
+
+Both metrics report the same output: reported and choice cost, fuel and time, with the fixed trip cost added once. Empty trips are routed and costed like loaded trips. They have loading ratio zero, so the light-loading fuel rate applies, and they carry no loading or unloading cost. The empty-trip appearance is an assumption and is labelled as such in the outputs.
+
+[Back to contents](#contents)
+
 ## Known assumptions
 
 - Loading anchors require confirmation against source documentation.
@@ -77,6 +91,7 @@ Reported time and cost include physical delays. Choice time adds calibration and
 - A nearest waterway boundary is low confidence.
 - The STREAM compatibility path is optional and must label placeholders.
 - Fuel-table source units and redistribution rights require owner confirmation.
+- Route assignment uses a placeholder speed and treats the soft-constraint penalty as hours (`PENALTY_UNIT_TO_HOURS`) until the speed calculation and penalty units are defined.
 
 [Back to contents](#contents)
 

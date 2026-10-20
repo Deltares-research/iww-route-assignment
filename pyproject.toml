@@ -19,8 +19,13 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
+    "dask[distributed]>=2026.8.0",
+    "geopandas>=1.2.0",
+    "networkx>=3.7",
     "numpy>=2.0",
     "pandas>=2.2",
+    "pyarrow>=26.0.0",
+    "scipy>=1.18.1",
 ]
 
 [project.optional-dependencies]

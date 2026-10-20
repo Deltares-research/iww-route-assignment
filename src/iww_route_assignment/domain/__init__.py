@@ -13,6 +13,7 @@ from .enums import (
     FuelResolutionMethod,
     FuelResolutionPolicy,
     LoadingCategory,
+    RouteCostMetric,
     TripRejectionReason,
     VesselProfile,
 )
@@ -51,6 +52,7 @@ __all__ = [
     "LoadingAnchors",
     "LoadingCategory",
     "ResolvedFuelRate",
+    "RouteCostMetric",
     "RouteProfile",
     "ScenarioCostParameters",
     "TripCostBreakdown",
