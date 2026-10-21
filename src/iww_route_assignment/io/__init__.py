@@ -26,10 +26,18 @@ from .loaders import (
     load_vessel_references_csv,
     select_cost_rates,
 )
+from .navigability import (
+    load_arc_restrictions_csv,
+    load_navigability_vessels_csv,
+    route_navigability_to_frames,
+)
 from .requests import cost_results_to_frames, load_arc_requests_csv
 from .results import arc_cost_to_record, fuel_resolution_to_record, summarise_fuel_resolutions
 
 __all__ = [
+    "load_arc_restrictions_csv",
+    "load_navigability_vessels_csv",
+    "route_navigability_to_frames",
     "load_arc_requests_csv",
     "cost_results_to_frames",
     "ARC_REQUEST_COLUMNS",
