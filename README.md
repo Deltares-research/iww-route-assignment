@@ -12,7 +12,7 @@ An open-source Python library for inland-waterway routing and assignment. The mo
 
 ## Status
 
-Pre-alpha. The first work package implements an auditable monetary cost core and fuel-resolution policy. Routing, navigability, iterative lock assignment and unloading remain planned work.
+Pre-alpha. The first work package implements an auditable monetary cost core and fuel-resolution policy. The second adds an independent navigability evaluator for supplied arcs and routes. Routing, iterative lock assignment and unloading remain planned work.
 
 [Back to contents](#contents)
 

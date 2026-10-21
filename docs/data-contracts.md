@@ -9,6 +9,9 @@
 5. [Arc requests](#arc-requests)
 6. [Arc results](#arc-results)
 7. [Trip observations](#trip-observations)
+8. [Arc restrictions](#arc-restrictions)
+9. [Navigability vessels](#navigability-vessels)
+10. [Navigability results](#navigability-results)
 
 Header-only templates for every table are committed in [`schemas/`](../schemas/README.md). Controlled values are listed in [Enumerations](enumerations.md).
 
@@ -152,7 +155,65 @@ Select `extended_2026` explicitly. Identity is `dataset:Jaar:Pseudo_ReisID`, pre
 
 ### Supplied routes
 
-`arc_profiles.csv` describes directed edges. `route_sequences.csv` supplies ordered traversals and route OD labels. Optional `trip_routes.csv` associates source trips with route IDs. Without associations, only a unique supplied route for an OD is accepted; alternatives are never chosen by row order. Same-node trips need an explicit zero-distance arc. There is no route search, snapping, network repair or navigability check here.
+`arc_profiles.csv` describes directed edges. `route_sequences.csv` supplies ordered traversals and route OD labels. Optional `trip_routes.csv` associates source trips with route IDs. Without associations, only a unique supplied route for an OD is accepted; alternatives are never chosen by row order. Same-node trips need an explicit zero-distance arc. There is no route search, snapping or network repair here. Navigability is checked separately; see [Navigability](navigability.md).
+
+[Back to contents](#contents)
+
+## Arc restrictions
+
+`arc_restrictions.csv`, read by `load_arc_restrictions_csv`. One row per structure on a directed arc. A waterway section is also a structure, with type `waterway`.
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `arc_id` | yes | arc identifier matching `arc_profiles.csv` |
+| `structure_id` | yes | structure identifier; unique per arc |
+| `structure_type` | yes | `waterway`, `bridge`, `lock` or `weir`; case-insensitive |
+| `max_length_m` | no | maximum permitted vessel length; blank means no limit |
+| `max_beam_m` | no | maximum permitted vessel beam; blank means no limit |
+| `max_draught_m` | no | maximum permitted vessel draught, not water depth; blank means no limit |
+| `max_air_draught_m` | no | maximum permitted air draught, not structure height; blank means no limit |
+| `dangerous_goods_permitted` | no | `true`, `false`, `yes`, `no`, `1` or `0`; blank means `true` |
+| `is_open` | no | same values; blank means `true`; `false` blocks every vessel |
+| `source` | yes | provenance label copied to every finding |
+
+Limits must be finite and greater than zero. Duplicate `(arc_id, structure_id)` pairs are rejected when the index is built.
+
+[Back to contents](#contents)
+
+## Navigability vessels
+
+`navigability_vessels.csv`, read by `load_navigability_vessels_csv`. One row per vessel state or trip class.
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `vessel_id` | yes | unique vessel-state identifier |
+| `length_m` | yes | vessel length |
+| `beam_m` | yes | vessel beam |
+| `draught_m` | yes | draught for this loading state |
+| `air_draught_m` | no | height above the waterline; blank is unknown and makes height-limited arcs `undetermined` |
+| `carries_dangerous_goods` | no | boolean as above; blank means `false` |
+| `source` | no | provenance label; blank means `unspecified` |
+
+## Navigability results
+
+`route_navigability_to_frames` returns two tables.
+
+| Summary column | Meaning |
+| --- | --- |
+| `route_id`, `vessel_id` | evaluated pair |
+| `status` | [navigability status](enumerations.md#navigability-status) of the route |
+| `arc_count` | number of traversals |
+| `first_blocking_sequence` | zero-based first blocked traversal, blank if none |
+| `finding_count` | number of findings |
+
+| Finding column | Meaning |
+| --- | --- |
+| `route_id`, `vessel_id`, `sequence` | traversal position |
+| `arc_id`, `structure_id`, `structure_type` | where the finding applies; structure is blank for `coverage` |
+| `restriction`, `status` | [restriction type](enumerations.md#restriction-type) and status |
+| `required_m` | vessel value plus margin; blank for flags and unknown values |
+| `limit_m` | compared limit; blank for flags |
+| `source` | restriction source, or `restriction_index` for coverage |
 
 [Back to contents](#contents)
 

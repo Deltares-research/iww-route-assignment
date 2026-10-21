@@ -5,8 +5,9 @@
 1. [Synthetic repository example](#synthetic-repository-example)
 2. [Trip preparation example](#trip-preparation-example)
 3. [Illustrative external case](#illustrative-external-case)
-4. [Verification suite](#verification-suite)
-5. [Benchmark](#benchmark)
+4. [Navigability example](#navigability-example)
+5. [Verification suite](#verification-suite)
+6. [Benchmark](#benchmark)
 
 ## Synthetic repository example
 
@@ -47,6 +48,16 @@ Every TOML key, the four required input tables, the scenario assumptions and the
 The synthetic case under `runs/test_case_cost_function` covers observed, interpolated and proxied fuel rates. It is not the Weurt case.
 
 The IVS case under `runs/case_ivs_weekmonitor_2023` applies the module to a real trip register. Its README records coverage, every applied assumption and the plausibility check. It is an application case, not a verification.
+
+[Back to contents](#contents)
+
+## Navigability example
+
+```powershell
+poetry run python examples/check_route_navigability.py
+```
+
+The example evaluates the two synthetic routes for three vessel states and prints one summary row per route and vessel, the findings and choice weights in which a blocked arc is infinite. Expected outcomes are hand-checked in `tests/test_navigability.py`. See [Navigability](navigability.md).
 
 [Back to contents](#contents)
 

@@ -13,6 +13,9 @@ Every value in this page is a closed set. Any other value raises `ValidationErro
 7. [Trip rejection reason](#trip-rejection-reason)
 8. [Waterway CEMT classes](#waterway-cemt-classes)
 9. [Vessel classes and families](#vessel-classes-and-families)
+10. [Structure type](#structure-type)
+11. [Restriction type](#restriction-type)
+12. [Navigability status](#navigability-status)
 
 ## How to read this page
 
@@ -206,5 +209,48 @@ Proxy distance is the weighted sum of the terms below, from `FuelProxyWeights`. 
 | `draught_empty` | 0.25 | Relative difference to the target. |
 
 Ties are broken by the sorted class label, so proxy selection does not depend on input row order.
+
+[Back to contents](#contents)
+
+## Structure type
+
+`StructureType`. Direction: input in `arc_restrictions.csv` and output in navigability findings.
+
+| Value | Meaning |
+| --- | --- |
+| `waterway` | Fairway section limits, such as permitted draught or dimensions. |
+| `bridge` | Fixed or movable bridge; usually an air-draught limit. |
+| `lock` | Lock chamber; usually length, beam and draught limits. |
+| `weir` | Weir or barrier; usually a closure state. |
+
+[Back to contents](#contents)
+
+## Restriction type
+
+`RestrictionType`. Direction: output in navigability findings.
+
+| Value | Meaning |
+| --- | --- |
+| `length` | Vessel length exceeds `max_length_m`. |
+| `beam` | Beam plus beam clearance exceeds `max_beam_m`. |
+| `draught` | Draught plus under-keel clearance exceeds `max_draught_m`. |
+| `air_draught` | Air draught plus air clearance exceeds `max_air_draught_m`, or air draught is unknown. |
+| `dangerous_goods` | Vessel carries dangerous goods where they are not permitted. |
+| `closed` | Structure is closed (`is_open` false). |
+| `coverage` | Arc has no restriction rows while coverage is required. |
+
+[Back to contents](#contents)
+
+## Navigability status
+
+`NavigabilityStatus`. Direction: output. Ordered from permissive to blocking; an arc or route takes its most restrictive status.
+
+| Value | Meaning | Routing use |
+| --- | --- | --- |
+| `navigable` | No finding. | Permitted. |
+| `undetermined` | Missing vessel value or missing restriction coverage. | Excluded unless `allow_undetermined=True` is chosen. |
+| `not_navigable` | A hard restriction is violated. | Always excluded. |
+
+Run options: `require_coverage` (default `true`) makes uncovered arcs `undetermined`; `allow_undetermined` (default `false`) admits `undetermined` arcs in `navigable_arc_mask`. `NavigabilityMargins` holds `under_keel_clearance_m`, `air_clearance_m` and `beam_clearance_m`, each defaulting to zero. See [Navigability](navigability.md).
 
 [Back to contents](#contents)

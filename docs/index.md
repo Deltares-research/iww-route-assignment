@@ -9,7 +9,7 @@
 
 ## Status
 
-The project is pre-alpha. Version 0.2 provides cargo-independent fuel resolution, weekly and extended IVS adapters, directed supplied sequences and complete-trip costing. The cost branch performs no route search or navigability checks. Navigability is developed on a dependent branch before later routing integration.
+The project is pre-alpha. Version 0.2 provides cargo-independent fuel resolution, weekly and extended IVS adapters, directed supplied sequences and complete-trip costing. Version 0.3 adds an independent navigability evaluator for supplied arcs and routes. Neither performs route search; routing will combine both, and no cost can override a hard restriction.
 
 [Back to contents](#contents)
 
@@ -23,6 +23,7 @@ Every document in the repository is listed here. If a page is not in this table,
 | Documentation index | `docs/index.md` | Which document do I need. |
 | Architecture | [`docs/architecture.md`](architecture.md) | How are the layers separated and what may import what. |
 | Cost module | [`docs/cost-module.md`](cost-module.md) | Which formulas are applied and what is assumed. |
+| Navigability | [`docs/navigability.md`](navigability.md) | Which hard restrictions are checked and how results feed routing. |
 | Case configuration | [`docs/configuration.md`](configuration.md) | How do I write a run TOML and what does each key do. |
 | Data contracts | [`docs/data-contracts.md`](data-contracts.md) | Which columns are required and what does each one drive. |
 | Enumerations | [`docs/enumerations.md`](enumerations.md) | Which values are allowed and what does each value mean. |
