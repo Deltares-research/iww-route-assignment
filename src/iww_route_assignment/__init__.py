@@ -1,5 +1,6 @@
 """Auditable inland-waterway route-assignment modelling."""
 
+from .application import CostedArc, CostedTrip, cost_trip_requests
 from .costs import (
     FallbackFuelConsumptionProvider,
     FuelConsumptionProvider,
@@ -14,6 +15,7 @@ from .domain import (
     AppearanceRule,
     ArcCostBreakdown,
     ArcCostRequest,
+    ArcProfile,
     ArcTravelInput,
     Confidence,
     CostRates,
@@ -21,10 +23,11 @@ from .domain import (
     FuelProxyWeights,
     FuelResolutionMethod,
     FuelResolutionPolicy,
+    IvsFormat,
     LoadingAnchors,
     LoadingCategory,
     ResolvedFuelRate,
-    RouteProfile,
+    RouteSequence,
     ScenarioCostParameters,
     TripCostBreakdown,
     TripCostInput,
@@ -32,9 +35,8 @@ from .domain import (
     TripObservation,
     TripRejection,
     TripRejectionReason,
-    VesselProfile,
+    TripRoute,
     VesselReference,
-    profile_for_appearance,
 )
 from .exceptions import (
     DuplicateFuelObservationError,
@@ -53,12 +55,16 @@ from .preparation import (
 )
 
 __all__ = [
+    "CostedArc",
+    "CostedTrip",
+    "cost_trip_requests",
     "CEMT_ORDER",
     "DEFAULT_NSTR_APPEARANCE",
     "NSTR_APPEARANCE_ASSUMPTION",
     "AppearanceRule",
     "ArcCostBreakdown",
     "ArcCostRequest",
+    "ArcProfile",
     "ArcTravelInput",
     "Confidence",
     "CostRates",
@@ -74,7 +80,7 @@ __all__ = [
     "LoadingAnchors",
     "LoadingCategory",
     "ResolvedFuelRate",
-    "RouteProfile",
+    "RouteSequence",
     "ScenarioCostParameters",
     "TableFuelConsumptionProvider",
     "TripConversionResult",
@@ -83,9 +89,10 @@ __all__ = [
     "TripFixedCostBreakdown",
     "TripObservation",
     "TripRejection",
+    "TripRoute",
     "TripRejectionReason",
     "ValidationError",
-    "VesselProfile",
+    "IvsFormat",
     "VesselReference",
     "build_route_index",
     "build_vessel_type_index",
@@ -93,9 +100,8 @@ __all__ = [
     "calculate_arc_costs",
     "calculate_trip_fixed_cost",
     "combine_trip_cost",
-    "profile_for_appearance",
     "summarise_trip_conversion",
     "trips_to_arc_requests",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
