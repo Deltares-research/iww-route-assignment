@@ -34,8 +34,25 @@ from .models import (
     TripRejection,
     VesselReference,
 )
+from .navigability import (
+    ArcNavigability,
+    ArcRestriction,
+    NavigabilityFinding,
+    NavigabilityMargins,
+    NavigabilityVessel,
+    RouteNavigability,
+)
 
 __all__ = [
+    "ArcNavigability",
+    "ArcRestriction",
+    "NavigabilityFinding",
+    "NavigabilityMargins",
+    "NavigabilityStatus",
+    "NavigabilityVessel",
+    "RestrictionType",
+    "RouteNavigability",
+    "StructureType",
     "CEMT_ORDER",
     "AppearanceRule",
     "ArcCostBreakdown",

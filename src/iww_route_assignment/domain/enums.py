@@ -1,4 +1,4 @@
-"""Stable enumerations used by the cost module."""
+"""Stable enumerations used by the cost and navigability modules."""
 
 from enum import StrEnum
 
@@ -54,3 +54,32 @@ class TripRejectionReason(StrEnum):
     NON_POSITIVE_CAPACITY = "non_positive_capacity"
     UNKNOWN_APPEARANCE = "unknown_appearance"
     INVALID_REQUEST = "invalid_request"
+
+
+class StructureType(StrEnum):
+    """Physical element that carries a navigability restriction on an arc."""
+
+    WATERWAY = "waterway"
+    BRIDGE = "bridge"
+    LOCK = "lock"
+    WEIR = "weir"
+
+
+class RestrictionType(StrEnum):
+    """Hard physical or regulatory restriction checked by the navigability evaluator."""
+
+    LENGTH = "length"
+    BEAM = "beam"
+    DRAUGHT = "draught"
+    AIR_DRAUGHT = "air_draught"
+    DANGEROUS_GOODS = "dangerous_goods"
+    CLOSED = "closed"
+    COVERAGE = "coverage"
+
+
+class NavigabilityStatus(StrEnum):
+    """Outcome of a navigability check, ordered from permissive to blocking."""
+
+    NAVIGABLE = "navigable"
+    UNDETERMINED = "undetermined"
+    NOT_NAVIGABLE = "not_navigable"
