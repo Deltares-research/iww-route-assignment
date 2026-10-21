@@ -38,11 +38,27 @@ from .domain import (
     TripRoute,
     VesselReference,
 )
+from .domain.enums import NavigabilityStatus, RestrictionType, StructureType
+from .domain.navigability import (
+    ArcNavigability,
+    ArcRestriction,
+    NavigabilityFinding,
+    NavigabilityMargins,
+    NavigabilityVessel,
+    RouteNavigability,
+)
 from .exceptions import (
     DuplicateFuelObservationError,
     FuelCoverageError,
     IWWRouteAssignmentError,
     ValidationError,
+)
+from .navigability import (
+    build_restriction_index,
+    evaluate_arc,
+    evaluate_route,
+    navigable_arc_mask,
+    restrict_choice_weights,
 )
 from .preparation import (
     DEFAULT_NSTR_APPEARANCE,
@@ -55,6 +71,20 @@ from .preparation import (
 )
 
 __all__ = [
+    "ArcNavigability",
+    "ArcRestriction",
+    "NavigabilityFinding",
+    "NavigabilityMargins",
+    "NavigabilityStatus",
+    "NavigabilityVessel",
+    "RestrictionType",
+    "RouteNavigability",
+    "StructureType",
+    "build_restriction_index",
+    "evaluate_arc",
+    "evaluate_route",
+    "navigable_arc_mask",
+    "restrict_choice_weights",
     "CostedArc",
     "CostedTrip",
     "cost_trip_requests",
@@ -104,4 +134,4 @@ __all__ = [
     "trips_to_arc_requests",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
