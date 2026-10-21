@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from ..exceptions import ValidationError
 
 CEMT_ORDER: tuple[str, ...] = (
@@ -21,6 +23,11 @@ CEMT_ORDER: tuple[str, ...] = (
 _RWS_ALIASES = {
     "BII-6B": "BII-6b",
 }
+
+# Convoy labels end in a length/beam letter written in either case by different sources,
+# for example BII-2b (IVS) and BII-2B (DTV). Only the letter case is canonicalised here;
+# different codes such as B04 and BO4 are never treated as the same class.
+_CONVOY_SUFFIX = re.compile(r"^(BII-\d|C\d)([LB])$")
 
 _CEMT_ALIASES = {
     "IVA": "IV",
@@ -42,6 +49,9 @@ def normalise_rws_class(value: str) -> str:
         return _RWS_ALIASES[upper]
     if upper.startswith("M") and upper[1:].isdigit():
         return upper
+    convoy = _CONVOY_SUFFIX.match(upper)
+    if convoy:
+        return f"{convoy.group(1)}{convoy.group(2).lower()}"
     return label
 
 
