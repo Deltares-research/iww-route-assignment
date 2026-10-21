@@ -185,7 +185,7 @@ Interpolation is linear in rank, not in a physical dimension. This is a modellin
 
 ## Vessel classes and families
 
-RWS vessel classes are open text, not a closed enumeration, because the supported set is defined by your `fuel_observations.csv` and `vessel_references.csv`. They are normalised before comparison: surrounding whitespace is removed, `M` followed by digits is upper-cased, and the alias `BII-6B` becomes `BII-6b`.
+RWS vessel classes are open text, not a closed enumeration, because the supported set is defined by your `fuel_observations.csv` and `vessel_references.csv`. They are normalised before comparison: surrounding whitespace is removed, `M` followed by digits is upper-cased, and the final length or beam letter of a convoy label is lower-cased, so `BII-2B` and `BII-2b` (or `C3L` and `C3l`) are the same class. Only letter case is canonicalised: different codes such as `B04` and `BO4` remain different and need a verified crosswalk.
 
 `vessel_family` derives a coarse family from the first letter, used only to prefer a same-family proxy in step 4.
 

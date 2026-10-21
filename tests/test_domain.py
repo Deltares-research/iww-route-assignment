@@ -20,6 +20,27 @@ def test_class_aliases_are_normalised() -> None:
     assert normalise_cemt_class("VIB") == "VIb"
 
 
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("BII-2B", "BII-2b"),
+        ("bii-2b", "BII-2b"),
+        ("BII-6l", "BII-6l"),
+        ("BII-6L", "BII-6l"),
+        ("C3L", "C3l"),
+        ("c2b", "C2b"),
+        ("m8", "M8"),
+        # Different codes stay different; no unverified crosswalk is implied.
+        ("B04", "B04"),
+        ("BO4", "BO4"),
+        ("BIIa-1", "BIIa-1"),
+        ("BII-1", "BII-1"),
+    ],
+)
+def test_convoy_suffix_case_is_canonical(label: str, expected: str) -> None:
+    assert normalise_rws_class(label) == expected
+
+
 def test_fuel_has_no_goods_type_field() -> None:
     from dataclasses import fields
 
