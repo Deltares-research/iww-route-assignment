@@ -9,7 +9,7 @@
 
 ## Status
 
-The project is pre-alpha. Work package 1 provides the monetary cost core and audited fuel-resolution contracts. Route search, navigability, iterative assignment, OpenTNSim coupling and unloading are not yet implemented.
+The project is pre-alpha. Version 0.2 provides cargo-independent fuel resolution, weekly and extended IVS adapters, directed supplied sequences and complete-trip costing. The cost branch performs no route search or navigability checks. Navigability is developed on a dependent branch before later routing integration.
 
 [Back to contents](#contents)
 
@@ -32,7 +32,7 @@ Every document in the repository is listed here. If a page is not in this table,
 | Schema templates | [`schemas/README.md`](../schemas/README.md) | What is each header-only CSV template for. |
 | Reference-data status | [`data/README.md`](../data/README.md) | Why is the fuel table absent and what replaces it. |
 
-The external IWW design folder contains dated modelling documents and implementation plans. It is not part of this repository. Its overview is `IWW\model\README.md`, and the procedure for running a cost estimation on real data is `IWW\model\instructions\<yyyymmdd>_cost_function_run.md`.
+The external IWW folder holds scripts, datasets and runs. Start with `IWW/model/guides/20261021_iww_cost_function_guide.html` for the checked synthetic workflow; `IWW/model/README.md` indexes the local documents. Real IVS journey totals require supplied model routes, not fabricated OD links.
 
 [Back to contents](#contents)
 
@@ -58,9 +58,10 @@ The external IWW design folder contains dated modelling documents and implementa
 
 ```mermaid
 flowchart LR
-    A[Cost function] --> B[Iterative routing]
-    B --> C[Navigability]
-    C --> D[OpenTNSim adapter]
+    A[Cost function] --> C[Independent navigability evaluator]
+    A --> B[Cost-minimising routing]
+    C --> B
+    B --> D[OpenTNSim adapter]
     D --> E[Scalability evidence]
     E --> F[Capability review]
     F --> G[Unloading]

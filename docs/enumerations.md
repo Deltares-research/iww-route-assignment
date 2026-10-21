@@ -5,7 +5,7 @@ Every value in this page is a closed set. Any other value raises `ValidationErro
 ## Contents
 
 1. [How to read this page](#how-to-read-this-page)
-2. [Vessel profile](#vessel-profile)
+2. [IVS format and preparation options](#ivs-format-and-preparation-options)
 3. [Loading category](#loading-category)
 4. [Fuel resolution policy](#fuel-resolution-policy)
 5. [Fuel resolution method](#fuel-resolution-method)
@@ -26,24 +26,24 @@ Each table gives the literal value, its meaning and where it appears.
 
 [Back to contents](#contents)
 
-## Vessel profile
+## IVS format and preparation options
 
-`VesselProfile`. Direction: input and output.
+`IvsFormat`: `weekmonitor` uses the Dutch weekly columns; `extended_2026` uses `Pseudo_ReisID`, `SK_CODE`, `Segment` and declared `Lading` units. Neither consumes observed route measurements.
 
-| Value | Meaning |
+| Preparation option | Meaning |
 | --- | --- |
-| `general` | Dry bulk, liquid bulk and general cargo fuel curves. |
-| `container` | Container fuel curves, kept strictly separate from general rows. |
+| `--format` | Required: `weekmonitor` or `extended_2026`. |
+| `--cargo-weight-unit` | `t` or `kg`; required for extended, weekly accepts only `kg`. Declared extended units are recorded assumptions. |
+| `--drop-export-index` | Explicit permission to discard one raw `Unnamed: 0` export index, recording a note. |
+| `--arc-profiles` | Required supplied directed edge snapshots. |
+| `--route-sequences` | Required ordered traversals; no route search. |
+| `--trip-routes` | Optional explicit trip-to-route mapping, needed for ambiguous OD alternatives. |
+| `--vessel-types` | Optional verified source-code crosswalk when no observed vessel class is available. Not an automatic BIVAS-ID join. |
+| `--appearance-map` | Optional sourced NSTR chapter mapping for weekly data. |
+| `--dataset-label` | Namespace for source IDs; defaults to the source file stem. |
+| `--output` | Required arc-request CSV destination; rejection and preparation reports are written alongside. |
 
-General and container observations are never merged or averaged. A container request can only be met by container source rows.
-
-Where it appears:
-
-- `fuel_observations.csv`, column `vessel_profile`. Required.
-- `arc_cost_requests.csv`, column `vessel_profile`. Optional override.
-- Result columns `fuel_requested_profile` and `fuel_selected_profile`.
-
-If the optional request column is blank, the profile is derived from `appearance` by `profile_for_appearance`: an appearance whose text contains `container`, compared case-insensitively, gives `container`, and every other appearance gives `general`. Set the column explicitly when that rule is not correct for your case.
+Fuel has no cargo/profile selector. Notebook `selected_source` must explicitly be `general` or `container`; this chooses a complete source dataset before costing, not a goods type for each request. Conflicting observations cannot coexist under the same fuel key.
 
 [Back to contents](#contents)
 
@@ -82,7 +82,7 @@ The resolution ladder, in order, stopping at the first step that succeeds:
 
 | Step | Description | Method recorded | Confidence |
 | --- | --- | --- | --- |
-| 1 | Exact vessel class, waterway class and profile. | `observed` or `loading_interpolated` | `high` |
+| 1 | Exact vessel class and waterway class. | `observed` or `loading_interpolated` | `high` |
 | 2 | Observed waterway classes both below and above the request, interpolated on CEMT rank. | `waterway_interpolated` | `medium` |
 | 3 | Nearest observed waterway class when the request lies outside the observed range. | `waterway_proxy` | `low` |
 | 4 | Nearest vessel class in the same family, then any family, by weighted attribute distance. | `vessel_proxy` | `low` |
@@ -99,7 +99,7 @@ The numbering is a fallback order, not five steps executed in sequence. Exactly 
 | Always attempted, every request | Attempted only if the previous attempt failed |
 | --- | --- |
 | Input validation. | Step 2, bounded waterway interpolation. |
-| Vessel and profile row lookup, which decides whether step 4 is even considered. | Step 3, nearest waterway boundary, `audited_proxy` only. |
+| Vessel row lookup, which decides whether step 4 is even considered. | Step 3, nearest waterway boundary, `audited_proxy` only. |
 | Step 1, exact waterway match, once vessel rows are found. | Step 4, nearest vessel proxy, `audited_proxy` only, and only for a vessel that also has a `vessel_references.csv` row. |
 | Loading-anchor interpolation against whichever waterway row is selected. This is not policy-gated. | Step 5, an explicit `FallbackFuelConsumptionProvider` wrapper, triggered only when the primary raises `FuelCoverageError`. |
 
@@ -148,7 +148,7 @@ Every method also writes `fuel_source_row_ids` and `fuel_source_datasets`, so an
 | Value | Meaning |
 | --- | --- |
 | `unknown_vessel_type` | The source ship-type identifier is absent from `vessel_type_map.csv`. |
-| `missing_route_profile` | No route profile exists for the origin and destination pair. |
+| `missing_arc_sequence` | No unique supplied route or explicit trip-route association is available. |
 | `missing_cargo_weight` | The transported weight is absent and the trip is not recorded as empty. |
 | `non_positive_capacity` | The recorded capacity is zero or negative, so no loading ratio can be derived. |
 | `unknown_appearance` | The cargo code does not map to an appearance in `nstr_appearance_map.csv`. |
@@ -208,6 +208,3 @@ Proxy distance is the weighted sum of the terms below, from `FuelProxyWeights`. 
 Ties are broken by the sorted class label, so proxy selection does not depend on input row order.
 
 [Back to contents](#contents)
-
-
-
