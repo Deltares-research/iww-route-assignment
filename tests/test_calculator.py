@@ -9,7 +9,6 @@ from iww_route_assignment import (
     LoadingCategory,
     TripCostInput,
     ValidationError,
-    VesselProfile,
     calculate_arc_cost,
     calculate_arc_costs,
     calculate_trip_fixed_cost,
@@ -20,9 +19,7 @@ from iww_route_assignment import (
 def test_arc_cost_returns_every_reported_and_choice_component(
     cost_rates, scenario, fuel_provider
 ) -> None:
-    fuel = fuel_provider.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.LIGHT
-    )
+    fuel = fuel_provider.resolve("M1", "I", loading_category=LoadingCategory.LIGHT)
     arc = ArcTravelInput(
         distance_km=20.0,
         realised_speed_km_per_h=10.0,
@@ -62,7 +59,7 @@ def test_interest_rate_is_in_percentage_points(cost_rates, fuel_provider) -> Non
     from iww_route_assignment import ScenarioCostParameters
 
     scenario = ScenarioCostParameters(0.0, 3.0, 0.0)
-    fuel = fuel_provider.resolve("M1", "I", VesselProfile.GENERAL, loading_ratio=0.0)
+    fuel = fuel_provider.resolve("M1", "I", loading_ratio=0.0)
     result = calculate_arc_cost(ArcTravelInput(10.0, 10.0), cost_rates, scenario, fuel)
     assert result.interest_cost_eur == pytest.approx(1.5)
 
@@ -81,7 +78,7 @@ def test_empty_trip_has_no_fixed_cost(cost_rates, scenario) -> None:
 
 
 def test_zero_distance_keeps_reported_fixed_time_cost(cost_rates, scenario, fuel_provider) -> None:
-    fuel = fuel_provider.resolve("M1", "I", VesselProfile.GENERAL, loading_ratio=0.0)
+    fuel = fuel_provider.resolve("M1", "I", loading_ratio=0.0)
     result = calculate_arc_cost(
         ArcTravelInput(0.0, 10.0, lock_waiting_time_h=1.0),
         cost_rates,
@@ -95,13 +92,14 @@ def test_zero_distance_keeps_reported_fixed_time_cost(cost_rates, scenario, fuel
 
 
 def test_trip_total_adds_fixed_cost_once(cost_rates, scenario, fuel_provider) -> None:
-    fuel = fuel_provider.resolve("M1", "I", VesselProfile.GENERAL, loading_ratio=0.0)
+    fuel = fuel_provider.resolve("M1", "I", loading_ratio=0.0)
     arc = calculate_arc_cost(ArcTravelInput(10.0, 10.0), cost_rates, scenario, fuel)
     fixed = calculate_trip_fixed_cost(TripCostInput(100.0, True), cost_rates, scenario)
     result = combine_trip_cost((arc, arc), fixed)
     assert result.arc_reported_cost_eur == 2 * arc.reported_variable_cost_eur
     assert result.reported_total_cost_eur == result.arc_reported_cost_eur + 514.0
     assert result.choice_total_cost_eur == result.arc_choice_cost_eur + 514.0
+    assert result.total_cost_eur == result.choice_total_cost_eur
 
 
 def test_batch_matches_scalar(cost_rates, scenario, fuel_provider) -> None:
@@ -111,8 +109,7 @@ def test_batch_matches_scalar(cost_rates, scenario, fuel_provider) -> None:
         ArcTravelInput(35.0, 12.0, calibration_delay_time_h=0.1),
     )
     fuels = tuple(
-        fuel_provider.resolve("M1", "I", VesselProfile.GENERAL, loading_ratio=ratio)
-        for ratio in (0.0, 0.5, 1.0)
+        fuel_provider.resolve("M1", "I", loading_ratio=ratio) for ratio in (0.0, 0.5, 1.0)
     )
     batch = calculate_arc_costs(arcs, cost_rates, scenario, fuels)
     scalar = tuple(
@@ -139,7 +136,7 @@ def test_empty_batch_is_supported(cost_rates, scenario) -> None:
 def test_reported_cost_is_monotonic_in_distance(
     first: float, increment: float, cost_rates, scenario, fuel_provider
 ) -> None:
-    fuel = fuel_provider.resolve("M1", "I", VesselProfile.GENERAL, loading_ratio=0.5)
+    fuel = fuel_provider.resolve("M1", "I", loading_ratio=0.5)
     lower = calculate_arc_cost(
         ArcTravelInput(first, 10.0), cost_rates, scenario, fuel
     ).reported_variable_cost_eur

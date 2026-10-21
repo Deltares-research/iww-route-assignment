@@ -19,7 +19,6 @@ from iww_route_assignment import (
     ScenarioCostParameters,
     TableFuelConsumptionProvider,
     TripCostInput,
-    VesselProfile,
     VesselReference,
     calculate_arc_cost,
     calculate_arc_costs,
@@ -82,7 +81,6 @@ OBSERVATIONS = (
         source_row_id="verification:M1:I",
         vessel_rws_class="M1",
         waterway_cemt_class="I",
-        vessel_profile=VesselProfile.GENERAL,
         diesel_light_l_per_h=40.0,
         diesel_medium_l_per_h=60.0,
         diesel_heavy_l_per_h=80.0,
@@ -92,7 +90,6 @@ OBSERVATIONS = (
         source_row_id="verification:M1:Va",
         vessel_rws_class="M1",
         waterway_cemt_class="Va",
-        vessel_profile=VesselProfile.GENERAL,
         diesel_light_l_per_h=60.0,
         diesel_medium_l_per_h=80.0,
         diesel_heavy_l_per_h=100.0,
@@ -102,7 +99,6 @@ OBSERVATIONS = (
         source_row_id="verification:M1:I:container",
         vessel_rws_class="M1",
         waterway_cemt_class="I",
-        vessel_profile=VesselProfile.CONTAINER,
         diesel_light_l_per_h=50.0,
         diesel_medium_l_per_h=70.0,
         diesel_heavy_l_per_h=90.0,
@@ -115,13 +111,11 @@ REFERENCES = (
     VesselReference("M2", "II", 550.0, 6.6, 50.0, 2.5, 1.2),
 )
 
-PROVIDER = TableFuelConsumptionProvider(OBSERVATIONS, REFERENCES)
+PROVIDER = TableFuelConsumptionProvider(OBSERVATIONS[:2], REFERENCES)
 
 
 def _arc_cost_actual() -> dict[str, Any]:
-    fuel = PROVIDER.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.MEDIUM
-    )
+    fuel = PROVIDER.resolve("M1", "I", loading_category=LoadingCategory.MEDIUM)
     result = calculate_arc_cost(ARC, RATES, SCENARIO, fuel)
     return {
         "movement_time_h": result.movement_time_h,
@@ -141,9 +135,7 @@ def _arc_cost_actual() -> dict[str, Any]:
 
 
 def _interest_actual() -> dict[str, Any]:
-    fuel = PROVIDER.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.MEDIUM
-    )
+    fuel = PROVIDER.resolve("M1", "I", loading_category=LoadingCategory.MEDIUM)
     result = calculate_arc_cost(ARC, RATES, SCENARIO, fuel)
     return {"interest_cost_eur": result.interest_cost_eur}
 
@@ -161,9 +153,7 @@ def _fixed_cost_actual() -> dict[str, Any]:
 
 
 def _trip_total_actual() -> dict[str, Any]:
-    fuel = PROVIDER.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.MEDIUM
-    )
+    fuel = PROVIDER.resolve("M1", "I", loading_category=LoadingCategory.MEDIUM)
     arc = calculate_arc_cost(ARC, RATES, SCENARIO, fuel)
     fixed = calculate_trip_fixed_cost(TripCostInput(500.0, True), RATES, SCENARIO)
     trip = combine_trip_cost((arc, arc), fixed)
@@ -171,11 +161,12 @@ def _trip_total_actual() -> dict[str, Any]:
         "arc_reported_cost_eur": trip.arc_reported_cost_eur,
         "reported_total_cost_eur": trip.reported_total_cost_eur,
         "choice_total_cost_eur": trip.choice_total_cost_eur,
+        "total_cost_eur": trip.total_cost_eur,
     }
 
 
 def _loading_interpolation_actual() -> dict[str, Any]:
-    fuel = PROVIDER.resolve("M1", "I", VesselProfile.GENERAL, loading_ratio=0.25)
+    fuel = PROVIDER.resolve("M1", "I", loading_ratio=0.25)
     return {
         "fuel_rate_l_per_h": fuel.fuel_rate_l_per_h,
         "method": fuel.method.value,
@@ -184,9 +175,7 @@ def _loading_interpolation_actual() -> dict[str, Any]:
 
 
 def _waterway_interpolation_actual() -> dict[str, Any]:
-    fuel = PROVIDER.resolve(
-        "M1", "III", VesselProfile.GENERAL, loading_category=LoadingCategory.MEDIUM
-    )
+    fuel = PROVIDER.resolve("M1", "III", loading_category=LoadingCategory.MEDIUM)
     return {
         "fuel_rate_l_per_h": fuel.fuel_rate_l_per_h,
         "method": fuel.method.value,
@@ -195,11 +184,9 @@ def _waterway_interpolation_actual() -> dict[str, Any]:
 
 
 def _profile_separation_actual() -> dict[str, Any]:
-    general = PROVIDER.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.HEAVY
-    )
-    container = PROVIDER.resolve(
-        "M1", "I", VesselProfile.CONTAINER, loading_category=LoadingCategory.HEAVY
+    general = PROVIDER.resolve("M1", "I", loading_category=LoadingCategory.HEAVY)
+    container = TableFuelConsumptionProvider(OBSERVATIONS[2:]).resolve(
+        "M1", "I", loading_category=LoadingCategory.HEAVY
     )
     return {
         "general_fuel_rate_l_per_h": general.fuel_rate_l_per_h,
@@ -208,9 +195,7 @@ def _profile_separation_actual() -> dict[str, Any]:
 
 
 def _batch_equivalence_actual() -> dict[str, Any]:
-    fuel = PROVIDER.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.MEDIUM
-    )
+    fuel = PROVIDER.resolve("M1", "I", loading_category=LoadingCategory.MEDIUM)
     scalar = calculate_arc_cost(ARC, RATES, SCENARIO, fuel)
     batch = calculate_arc_costs((ARC, ARC), RATES, SCENARIO, (fuel, fuel))
     return {
@@ -222,7 +207,34 @@ def _batch_equivalence_actual() -> dict[str, Any]:
     }
 
 
+def _empty_trip_actual() -> dict[str, Any]:
+    fuel = PROVIDER.resolve("M1", "I", loading_category=LoadingCategory.LIGHT)
+    arc = calculate_arc_cost(ARC, RATES, SCENARIO, fuel)
+    fixed = calculate_trip_fixed_cost(TripCostInput(0.0, False), RATES, SCENARIO)
+    total = combine_trip_cost((arc, arc), fixed)
+    return {
+        "fixed_cost_eur": total.fixed_cost_eur,
+        "total_cost_eur": total.total_cost_eur,
+        "reported_total_cost_eur": total.reported_total_cost_eur,
+    }
+
+
 CASES: tuple[VerificationCase, ...] = (
+    VerificationCase(
+        case_id="V-COST-005",
+        requirement="Total remains populated with zero fixed cost",
+        description="An empty two-arc trip retains operating cost and supplied penalties.",
+        hand_calculation=(
+            "per arc: 120 + 312 + 40 x 5 x 1.5 + 40 x 0.2 x 1.5 = 744; "
+            "reported = 1488; penalty = 2 x 52; total = 1592; fixed = 0"
+        ),
+        expected={
+            "fixed_cost_eur": 0.0,
+            "total_cost_eur": 1592.0,
+            "reported_total_cost_eur": 1488.0,
+        },
+        compute=_empty_trip_actual,
+    ),
     VerificationCase(
         case_id="V-COST-001",
         requirement="Arc time and cost decomposition",
@@ -290,6 +302,7 @@ CASES: tuple[VerificationCase, ...] = (
             "arc_reported_cost_eur": 1800.0,
             "reported_total_cost_eur": 3330.0,
             "choice_total_cost_eur": 3434.0,
+            "total_cost_eur": 3434.0,
         },
         compute=_trip_total_actual,
     ),
@@ -324,9 +337,9 @@ CASES: tuple[VerificationCase, ...] = (
     ),
     VerificationCase(
         case_id="V-FUEL-003",
-        requirement="General and container profiles stay separate",
-        description="The same vessel and waterway resolve to different rates per profile.",
-        hand_calculation="general heavy = 80; container heavy = 90",
+        requirement="Fuel sources require explicit selection",
+        description="Separate providers explicitly select different source datasets; no merging.",
+        hand_calculation="selected general-source heavy = 80; selected alternate-source heavy = 90",
         expected={
             "general_fuel_rate_l_per_h": 80.0,
             "container_fuel_rate_l_per_h": 90.0,

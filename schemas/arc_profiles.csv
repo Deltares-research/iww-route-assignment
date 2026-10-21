@@ -1,0 +1,3 @@
+arc_id,from_node_id,to_node_id,distance_km,waterway_cemt_class,realised_speed_km_per_h,source,lock_service_time_h,lock_waiting_time_h,bridge_service_time_h,real_delay_time_h,calibration_delay_time_h,relaxation_penalty_time_h
+
+

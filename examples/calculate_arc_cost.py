@@ -13,7 +13,6 @@ from iww_route_assignment import (
     ScenarioCostParameters,
     TableFuelConsumptionProvider,
     TripCostInput,
-    VesselProfile,
     VesselReference,
     calculate_arc_cost,
     calculate_trip_fixed_cost,
@@ -30,7 +29,6 @@ def main() -> None:
                 source_row_id="example:M1:I",
                 vessel_rws_class="M1",
                 waterway_cemt_class="I",
-                vessel_profile=VesselProfile.GENERAL,
                 diesel_light_l_per_h=37.0,
                 diesel_medium_l_per_h=50.0,
                 diesel_heavy_l_per_h=58.0,
@@ -42,7 +40,6 @@ def main() -> None:
     fuel = provider.resolve(
         "M1",
         "I",
-        VesselProfile.GENERAL,
         loading_category=LoadingCategory.MEDIUM,
     )
     rates = CostRates(
@@ -84,7 +81,7 @@ def main() -> None:
     output = {
         "arc": arc_cost_to_record("synthetic-arc", arc),
         "fixed_trip_cost": asdict(fixed),
-        "trip": asdict(trip),
+        "trip": {**asdict(trip), "total_cost_eur": trip.total_cost_eur},
     }
     print(json.dumps(output, indent=2, sort_keys=True))
 

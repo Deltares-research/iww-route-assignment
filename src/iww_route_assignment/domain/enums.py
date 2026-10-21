@@ -3,11 +3,11 @@
 from enum import StrEnum
 
 
-class VesselProfile(StrEnum):
-    """Source profile retained from the fuel observations."""
+class IvsFormat(StrEnum):
+    """Explicit source layouts; formats are never guessed from individual rows."""
 
-    GENERAL = "general"
-    CONTAINER = "container"
+    WEEKMONITOR = "weekmonitor"
+    EXTENDED_2026 = "extended_2026"
 
 
 class LoadingCategory(StrEnum):
@@ -49,7 +49,7 @@ class TripRejectionReason(StrEnum):
     """Reason a source trip record could not become an arc-cost request."""
 
     UNKNOWN_VESSEL_TYPE = "unknown_vessel_type"
-    MISSING_ROUTE_PROFILE = "missing_route_profile"
+    MISSING_ARC_SEQUENCE = "missing_arc_sequence"
     MISSING_CARGO_WEIGHT = "missing_cargo_weight"
     NON_POSITIVE_CAPACITY = "non_positive_capacity"
     UNKNOWN_APPEARANCE = "unknown_appearance"

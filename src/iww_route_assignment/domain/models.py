@@ -12,7 +12,6 @@ from .enums import (
     FuelResolutionMethod,
     LoadingCategory,
     TripRejectionReason,
-    VesselProfile,
 )
 
 
@@ -92,12 +91,11 @@ class ScenarioCostParameters:
 
 @dataclass(frozen=True, slots=True)
 class FuelConsumptionObservation:
-    """Observed fuel use for one vessel, waterway and retained source profile."""
+    """Observed fuel use for one vessel and waterway from a selected source."""
 
     source_row_id: str
     vessel_rws_class: str
     waterway_cemt_class: str
-    vessel_profile: VesselProfile
     diesel_light_l_per_h: float
     diesel_medium_l_per_h: float
     diesel_heavy_l_per_h: float
@@ -111,11 +109,6 @@ class FuelConsumptionObservation:
         object.__setattr__(
             self, "waterway_cemt_class", normalise_cemt_class(self.waterway_cemt_class)
         )
-        try:
-            profile = VesselProfile(self.vessel_profile)
-        except ValueError as error:
-            raise ValidationError(f"Unsupported vessel_profile {self.vessel_profile!r}") from error
-        object.__setattr__(self, "vessel_profile", profile)
         object.__setattr__(
             self, "source_dataset", _required_text("source_dataset", self.source_dataset)
         )
@@ -239,8 +232,6 @@ class ResolvedFuelRate:
     selected_vessel_rws_class: str
     requested_waterway_cemt_class: str
     selected_waterway_cemt_class: str
-    requested_profile: VesselProfile
-    selected_profile: VesselProfile
     raw_loading_ratio: float | None
     applied_loading_ratio: float
     lower_loading_category: LoadingCategory
@@ -366,6 +357,11 @@ class TripCostBreakdown:
     arc_choice_cost_eur: float
     choice_total_cost_eur: float
 
+    @property
+    def total_cost_eur(self) -> float:
+        """Generalised trip cost including explicitly supplied choice penalties."""
+        return self.choice_total_cost_eur
+
 
 @dataclass(frozen=True, slots=True)
 class TripObservation:
@@ -374,14 +370,19 @@ class TripObservation:
     source_row_id: str
     origin_locode: str
     destination_locode: str
-    vessel_type_id: int
+    vessel_type_id: int | None
     capacity_t: float
     cargo_t: float | None
-    containers_teu: float
+    containers_teu: float | None
     cargo_code: str
     source_dataset: str
     loading_code: str = ""
     observed_on: str = ""
+    vessel_rws_class: str = ""
+    appearance: str = ""
+    appearance_source: str = ""
+    cargo_unit_source: str = ""
+    notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for name in ("source_row_id", "origin_locode", "destination_locode", "source_dataset"):
@@ -391,14 +392,21 @@ class TripObservation:
         object.__setattr__(self, "cargo_code", self.cargo_code.strip())
         object.__setattr__(self, "loading_code", self.loading_code.strip())
         object.__setattr__(self, "observed_on", self.observed_on.strip())
-        if not isinstance(self.vessel_type_id, int) or isinstance(self.vessel_type_id, bool):
+        if self.vessel_type_id is not None and (
+            not isinstance(self.vessel_type_id, int) or isinstance(self.vessel_type_id, bool)
+        ):
             raise ValidationError(
                 f"vessel_type_id must be an int; received {self.vessel_type_id!r}"
             )
-        for name in ("capacity_t", "containers_teu"):
-            _finite_non_negative(name, getattr(self, name))
+        _finite_non_negative("capacity_t", self.capacity_t)
+        if self.containers_teu is not None:
+            _finite_non_negative("containers_teu", self.containers_teu)
         if self.cargo_t is not None:
             _finite_non_negative("cargo_t", self.cargo_t)
+        if self.vessel_rws_class:
+            object.__setattr__(self, "vessel_rws_class", normalise_rws_class(self.vessel_rws_class))
+        if self.appearance and not self.appearance_source:
+            raise ValidationError("An observed appearance requires appearance_source")
 
 
 @dataclass(frozen=True, slots=True)
@@ -411,34 +419,6 @@ class AppearanceRule:
     def __post_init__(self) -> None:
         object.__setattr__(self, "appearance", _required_text("appearance", self.appearance))
         object.__setattr__(self, "source", _required_text("source", self.source))
-
-
-@dataclass(frozen=True, slots=True)
-class RouteProfile:
-    """Route attributes attached to one origin-destination pair."""
-
-    origin_locode: str
-    destination_locode: str
-    distance_km: float
-    waterway_cemt_class: str
-    realised_speed_km_per_h: float
-    source: str
-
-    def __post_init__(self) -> None:
-        for name in ("origin_locode", "destination_locode", "source"):
-            object.__setattr__(self, name, _required_text(name, getattr(self, name)))
-        object.__setattr__(self, "origin_locode", self.origin_locode.upper())
-        object.__setattr__(self, "destination_locode", self.destination_locode.upper())
-        object.__setattr__(
-            self, "waterway_cemt_class", normalise_cemt_class(self.waterway_cemt_class)
-        )
-        _finite_positive("distance_km", self.distance_km)
-        _finite_positive("realised_speed_km_per_h", self.realised_speed_km_per_h)
-
-    @property
-    def key(self) -> tuple[str, str]:
-        """Return the origin-destination key used for deterministic lookup."""
-        return (self.origin_locode, self.destination_locode)
 
 
 @dataclass(frozen=True, slots=True)
@@ -461,6 +441,18 @@ class ArcCostRequest:
     route_source: str
     loading_ratio_source: str
     notes: tuple[str, ...] = ()
+    route_id: str = ""
+    sequence: int = 0
+    route_arc_count: int = 1
+    from_node_id: str = ""
+    to_node_id: str = ""
+    cargo_unit_source: str = ""
+    lock_service_time_h: float = 0.0
+    lock_waiting_time_h: float = 0.0
+    bridge_service_time_h: float = 0.0
+    real_delay_time_h: float = 0.0
+    calibration_delay_time_h: float = 0.0
+    relaxation_penalty_time_h: float = 0.0
 
     def __post_init__(self) -> None:
         for name in (
@@ -482,13 +474,28 @@ class ArcCostRequest:
             raise ValidationError(
                 f"loading_ratio must be finite and between 0 and 1; received {self.loading_ratio!r}"
             )
-        _finite_positive("distance_km", self.distance_km)
+        _finite_non_negative("distance_km", self.distance_km)
         _finite_positive("realised_speed_km_per_h", self.realised_speed_km_per_h)
         _finite_non_negative("cargo_t", self.cargo_t)
         if not isinstance(self.is_loaded, bool):
             raise ValidationError("is_loaded must be a bool")
         if not self.is_loaded and self.cargo_t > 0:
             raise ValidationError("An empty trip cannot carry positive cargo_t")
+        if (
+            type(self.sequence) is not int
+            or type(self.route_arc_count) is not int
+            or not 0 <= self.sequence < self.route_arc_count
+        ):
+            raise ValidationError("sequence must be an integer within route_arc_count")
+        for name in (
+            "lock_service_time_h",
+            "lock_waiting_time_h",
+            "bridge_service_time_h",
+            "real_delay_time_h",
+            "calibration_delay_time_h",
+            "relaxation_penalty_time_h",
+        ):
+            _finite_non_negative(name, getattr(self, name))
 
 
 @dataclass(frozen=True, slots=True)
