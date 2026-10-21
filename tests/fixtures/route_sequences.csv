@@ -1,0 +1,4 @@
+route_id,origin_locode,destination_locode,sequence,arc_id,source
+ab-route,NLAAA,NLBBB,0,ab,synthetic-test
+bc-route,NLBBB,NLCCC,0,bc,synthetic-test
+
