@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from ..exceptions import ValidationError
-from .enums import VesselProfile
 
 CEMT_ORDER: tuple[str, ...] = (
     "0",
@@ -73,12 +72,3 @@ def vessel_family(vessel_rws_class: str) -> str:
     if canonical.startswith("C"):
         return "coupled_convoy"
     return "other"
-
-
-def profile_for_appearance(appearance: str) -> VesselProfile:
-    """Map cargo appearance to the retained fuel-source profile."""
-    if not appearance.strip():
-        raise ValidationError("appearance must not be empty")
-    if "container" in appearance.casefold():
-        return VesselProfile.CONTAINER
-    return VesselProfile.GENERAL
