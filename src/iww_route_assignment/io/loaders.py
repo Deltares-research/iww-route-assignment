@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from ..costs.fuel import TableFuelConsumptionProvider
-from ..domain.classifications import normalise_rws_class
+from ..domain.classifications import normalise_cemt_class, normalise_rws_class
 from ..domain.enums import FuelResolutionPolicy
 from ..domain.models import (
     CostRates,
@@ -25,7 +25,6 @@ _FUEL_COLUMNS = {
     "source_row_id",
     "vessel_rws_class",
     "waterway_cemt_class",
-    "vessel_profile",
     "diesel_light_l_per_h",
     "diesel_medium_l_per_h",
     "diesel_heavy_l_per_h",
@@ -61,15 +60,29 @@ _COST_COLUMNS = {
 
 
 def load_fuel_observations_csv(path: str | Path) -> tuple[FuelConsumptionObservation, ...]:
-    """Load the normalised, profile-aware and index-free fuel contract."""
+    """Load the normalised, cargo-independent and index-free fuel contract."""
     table = _read_csv(path)
     _require_columns(table, _FUEL_COLUMNS, "fuel observations")
+    obsolete = {"vessel_profile", "goods_type", "appearance"}.intersection(table.columns)
+    if obsolete:
+        raise ValidationError(
+            f"Remove fuel goods/profile columns {sorted(obsolete)} by selecting a source dataset; "
+            "do not merge conflicting rates"
+        )
+    keys = [
+        (
+            normalise_rws_class(_text(row, "vessel_rws_class")),
+            normalise_cemt_class(_text(row, "waterway_cemt_class")),
+        )
+        for _, row in table.iterrows()
+    ]
+    if len(set(keys)) != len(keys):
+        raise ValidationError("Duplicate fuel keys; select one unambiguous source dataset")
     return tuple(
         FuelConsumptionObservation(
             source_row_id=_text(row, "source_row_id"),
             vessel_rws_class=_text(row, "vessel_rws_class"),
             waterway_cemt_class=_text(row, "waterway_cemt_class"),
-            vessel_profile=_text(row, "vessel_profile"),  # type: ignore[arg-type]
             diesel_light_l_per_h=_number(row, "diesel_light_l_per_h"),
             diesel_medium_l_per_h=_number(row, "diesel_medium_l_per_h"),
             diesel_heavy_l_per_h=_number(row, "diesel_heavy_l_per_h"),

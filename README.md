@@ -12,7 +12,7 @@ An open-source Python library for inland-waterway routing and assignment. The mo
 
 ## Status
 
-Pre-alpha. The first work package implements an auditable monetary cost core and fuel-resolution policy. Routing, navigability, iterative lock assignment and unloading remain planned work.
+Pre-alpha. The first work package implements an auditable monetary cost core and fuel-resolution policy. The second adds an independent navigability evaluator. The third adds traffic assignment: IVS trips are routed over the EuRIS network with the cost function as the route-search weight. Iterative lock assignment and unloading remain planned work.
 
 [Back to contents](#contents)
 
@@ -23,6 +23,7 @@ Requires Python 3.12 or later.
 ```powershell
 poetry install --extras dev
 poetry run python examples/calculate_arc_cost.py
+poetry run python examples/assign_synthetic_trips.py
 poetry run pytest
 ```
 
@@ -36,6 +37,7 @@ poetry run pytest
 - Exact lookup, bounded interpolation and deterministic audited proxies.
 - Scalar and NumPy batch calculation.
 - Validated CSV adapters and flat audit records.
+- Traffic assignment on the EuRIS network, minimising cost or time, with reported penalties for physical limits.
 - Synthetic illustrative case and benchmark harness.
 
 OpenTNSim is not a core dependency.
@@ -51,6 +53,7 @@ Most used pages:
 | Page | Answers |
 | --- | --- |
 | [Cost module](docs/cost-module.md) | Which formulas are applied. |
+| [Traffic assignment](docs/assignment.md) | How trips are routed and priced. |
 | [Case configuration](docs/configuration.md) | How to write a run TOML and what each key does. |
 | [Data contracts](docs/data-contracts.md) | Which CSV columns are required and what each one drives. |
 | [Enumerations](docs/enumerations.md) | Which option values exist and what each one means. |

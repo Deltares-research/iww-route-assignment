@@ -1,4 +1,4 @@
-"""Prepare profile-aware fuel observations from the source notebook tables."""
+"""Prepare cargo-independent fuel observations from an explicitly selected source."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from pathlib import Path
 import pandas as pd
 
 from ..domain.classifications import normalise_cemt_class, normalise_rws_class
-from ..domain.enums import VesselProfile
 from ..exceptions import DuplicateFuelObservationError, ValidationError
 
 _RAW_COLUMNS = {
@@ -23,7 +22,6 @@ _OUTPUT_COLUMNS = [
     "source_row_id",
     "vessel_rws_class",
     "waterway_cemt_class",
-    "vessel_profile",
     "diesel_light_l_per_h",
     "diesel_medium_l_per_h",
     "diesel_heavy_l_per_h",
@@ -35,33 +33,33 @@ def prepare_notebook_fuel_observations(
     general: pd.DataFrame,
     container: pd.DataFrame,
     *,
+    selected_source: str,
     general_source: str = "notebook:general",
     container_source: str = "notebook:container",
 ) -> pd.DataFrame:
-    """Normalise the two notebook datasets without filling or merging source rows.
+    """Select one of the two notebook datasets without filling or merging rows.
 
     Waterway interpolation is performed by the fuel provider at lookup time. This
     preserves both source rows and the interpolation fraction in result metadata.
     """
-    frames = (
-        _normalise_profile(general, VesselProfile.GENERAL, general_source),
-        _normalise_profile(container, VesselProfile.CONTAINER, container_source),
+    if selected_source not in {"general", "container"}:
+        raise ValidationError("selected_source must explicitly be general or container")
+    table, source = (
+        (general, general_source) if selected_source == "general" else (container, container_source)
     )
-    result = pd.concat(frames, ignore_index=True)
-    duplicate = result.duplicated(
-        ["vessel_rws_class", "waterway_cemt_class", "vessel_profile"], keep=False
-    )
+    result = _normalise_source(table, source)
+    duplicate = result.duplicated(["vessel_rws_class", "waterway_cemt_class"], keep=False)
     if duplicate.any():
         keys = result.loc[
             duplicate,
-            ["vessel_rws_class", "waterway_cemt_class", "vessel_profile"],
+            ["vessel_rws_class", "waterway_cemt_class"],
         ].drop_duplicates()
         raise DuplicateFuelObservationError(
-            "Duplicate notebook fuel keys remain within a profile: "
+            "Duplicate notebook fuel keys remain within the selected source: "
             f"{keys.to_dict(orient='records')}"
         )
     return result.sort_values(
-        ["vessel_profile", "vessel_rws_class", "waterway_cemt_class", "source_row_id"]
+        ["vessel_rws_class", "waterway_cemt_class", "source_row_id"]
     ).reset_index(drop=True)
 
 
@@ -70,6 +68,7 @@ def write_notebook_fuel_observations_csv(
     container: pd.DataFrame,
     output_path: str | Path,
     *,
+    selected_source: str,
     general_source: str = "notebook:general",
     container_source: str = "notebook:container",
 ) -> Path:
@@ -79,6 +78,7 @@ def write_notebook_fuel_observations_csv(
     table = prepare_notebook_fuel_observations(
         general,
         container,
+        selected_source=selected_source,
         general_source=general_source,
         container_source=container_source,
     )
@@ -86,14 +86,10 @@ def write_notebook_fuel_observations_csv(
     return output
 
 
-def _normalise_profile(
-    table: pd.DataFrame, profile: VesselProfile, source_dataset: str
-) -> pd.DataFrame:
+def _normalise_source(table: pd.DataFrame, source_dataset: str) -> pd.DataFrame:
     missing = sorted(_RAW_COLUMNS.difference(str(column) for column in table.columns))
     if missing:
-        raise ValidationError(
-            f"Notebook {profile.value} fuel table is missing columns: {', '.join(missing)}"
-        )
+        raise ValidationError(f"Notebook fuel table is missing columns: {', '.join(missing)}")
     if not source_dataset.strip():
         raise ValidationError("Fuel source dataset must not be empty")
 
@@ -103,10 +99,9 @@ def _normalise_profile(
         waterway = normalise_cemt_class(_required_text(row, "waterway_cemt_class"))
         records.append(
             {
-                "source_row_id": f"{profile.value}:{vessel}:{waterway}",
+                "source_row_id": f"{source_dataset}:{vessel}:{waterway}",
                 "vessel_rws_class": vessel,
                 "waterway_cemt_class": waterway,
-                "vessel_profile": profile.value,
                 "diesel_light_l_per_h": _required_number(row, "diesel_light"),
                 "diesel_medium_l_per_h": _required_number(row, "diesel_medium"),
                 "diesel_heavy_l_per_h": _required_number(row, "diesel_heavy"),
@@ -114,7 +109,7 @@ def _normalise_profile(
             }
         )
     if not records:
-        raise ValidationError(f"Notebook {profile.value} fuel table contains no rows")
+        raise ValidationError("Notebook fuel table contains no rows")
     return pd.DataFrame.from_records(records, columns=_OUTPUT_COLUMNS)
 
 

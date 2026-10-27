@@ -19,8 +19,9 @@ from iww_route_assignment import (
 from iww_route_assignment.io import (
     arc_requests_to_frame,
     load_appearance_map_csv,
+    load_arc_profiles_csv,
     load_ivs_trips_csv,
-    load_route_profiles_csv,
+    load_route_sequences_csv,
     load_vessel_type_map_csv,
     trip_rejections_to_frame,
 )
@@ -31,7 +32,11 @@ FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 def main() -> None:
     """Prepare requests from the synthetic fixture and print the audit summary."""
     trips = load_ivs_trips_csv(FIXTURES / "ivs_trips.csv", source_dataset="synthetic-example")
-    routes = build_route_index(load_route_profiles_csv(FIXTURES / "route_profiles.csv"))
+    routes = build_route_index(
+        load_route_sequences_csv(
+            FIXTURES / "route_sequences.csv", load_arc_profiles_csv(FIXTURES / "arc_profiles.csv")
+        )
+    )
     vessel_types = load_vessel_type_map_csv(FIXTURES / "vessel_type_map.csv")
     appearance_map = load_appearance_map_csv(FIXTURES / "nstr_appearance_map.csv")
 

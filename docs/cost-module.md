@@ -73,14 +73,14 @@ Reported time and cost include physical delays. Choice time adds calibration and
 
 ## Route assignment
 
-`iww_route_assignment.routing_costs` connects the calculators to route assignment. `RoutingCostConfig` holds the run-level inputs (cost rates, fuel provider, scenario and `RouteCostMetric`). Its `voyage_model` method builds a `VoyageCostModel` for one voyage group. The model resolves the cost-rate row from the cargo appearance and vessel class, derives the loading ratio, and caches the fuel rate per waterway class.
+`iww_route_assignment.assignment` uses this module for both route search and reported cost. `calculate_arc_cost_arrays` is the array form of the arc formula. It gives every edge weight for a routing key in one call, and prices each chosen route. `calculate_arc_costs` uses the same function, so search and reported values cannot drift apart. `combine_trip_cost_arrays` adds the fixed cost once, like `combine_trip_cost`.
 
 `RouteCostMetric` selects what the route search minimises:
 
-- `TRAVEL_TIME`: choice time in hours (`calculate_arc_choice_time_h`). It needs no fuel or rate lookup. If the cost inputs of a group cannot be resolved, the group is still routed and reported without costs.
-- `TRAVEL_COST_EUR`: choice cost in EUR. A group whose cost inputs cannot be resolved is not routed and is reported as `cost_fail`.
+- `travel_cost_eur` (default): `choice_cost_eur`, with penalty hours priced at the hourly rate (`hourly_rate_eur_per_h`).
+- `travel_time`: choice time in hours, which needs no rate or fuel.
 
-Both metrics report the same output: reported and choice cost, fuel and time, with the fixed trip cost added once. Empty trips are routed and costed like loaded trips. They have loading ratio zero, so the light-loading fuel rate applies, and they carry no loading or unloading cost. The empty-trip appearance is an assumption and is labelled as such in the outputs.
+Both metrics report the full cost of the chosen route. A voyage whose cost inputs cannot be resolved gets status `cost_fail` under either metric. Empty trips are routed and costed like loaded trips. They have loading ratio zero, so the light-loading fuel rate applies, and they carry no fixed cargo-handling cost. See [Traffic assignment](assignment.md).
 
 [Back to contents](#contents)
 
@@ -91,7 +91,7 @@ Both metrics report the same output: reported and choice cost, fuel and time, wi
 - A nearest waterway boundary is low confidence.
 - The STREAM compatibility path is optional and must label placeholders.
 - Fuel-table source units and redistribution rights require owner confirmation.
-- Route assignment uses a placeholder speed and treats the soft-constraint penalty as hours (`PENALTY_UNIT_TO_HOURS`) until the speed calculation and penalty units are defined.
+- Route assignment uses EuRIS speed limits, not vessel-specific speeds. Penalty sizes come from the previous assignment and are not calibrated.
 
 [Back to contents](#contents)
 

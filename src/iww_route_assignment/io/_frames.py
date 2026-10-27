@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -16,7 +17,7 @@ def read_csv_table(path: str | Path) -> pd.DataFrame:
     if not source.is_file():
         raise ValidationError(f"CSV file does not exist: {source}")
     try:
-        table = pd.read_csv(source, dtype_backend="numpy_nullable")
+        table = pd.read_csv(source, dtype="string")
     except Exception as error:
         raise ValidationError(f"Could not read CSV file {source}: {error}") from error
     generated_index_columns = [
@@ -84,10 +85,14 @@ def integer_value(row: pd.Series, column: str) -> int:
 
 
 def _to_float(value: Any, column: str) -> float:
+    if isinstance(value, bool):
+        raise ValidationError(f"Column {column!r} contains a boolean, not a number")
     try:
         number = float(value)
     except (TypeError, ValueError) as error:
         raise ValidationError(
             f"Column {column!r} contains a non-numeric value {value!r}"
         ) from error
+    if not isfinite(number):
+        raise ValidationError(f"Column {column!r} must be finite")
     return number

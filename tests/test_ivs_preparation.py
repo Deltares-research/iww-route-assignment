@@ -10,16 +10,16 @@ import pytest
 from iww_route_assignment import (
     AppearanceRule,
     ArcCostRequest,
+    ArcProfile,
     ArcTravelInput,
     CostRates,
-    RouteProfile,
+    RouteSequence,
     ScenarioCostParameters,
     TableFuelConsumptionProvider,
     TripCostInput,
     TripObservation,
     TripRejectionReason,
     ValidationError,
-    VesselProfile,
     build_route_index,
     build_vessel_type_index,
     calculate_arc_cost,
@@ -32,8 +32,9 @@ from iww_route_assignment.io import (
     arc_requests_to_frame,
     ivs_trips_from_frame,
     load_appearance_map_csv,
+    load_arc_profiles_csv,
     load_ivs_trips_csv,
-    load_route_profiles_csv,
+    load_route_sequences_csv,
     load_vessel_type_map_csv,
     trip_rejections_to_frame,
 )
@@ -46,7 +47,7 @@ from iww_route_assignment.preparation import (
 FIXTURES = Path(__file__).parent / "fixtures"
 
 IVS_FIXTURE = FIXTURES / "ivs_trips.csv"
-ROUTE_FIXTURE = FIXTURES / "route_profiles.csv"
+ROUTE_FIXTURE = FIXTURES / "arc_profiles.csv"
 VESSEL_TYPE_FIXTURE = FIXTURES / "vessel_type_map.csv"
 APPEARANCE_FIXTURE = FIXTURES / "nstr_appearance_map.csv"
 
@@ -57,8 +58,12 @@ def trips() -> tuple[TripObservation, ...]:
 
 
 @pytest.fixture
-def routes() -> dict[tuple[str, str], RouteProfile]:
-    return build_route_index(load_route_profiles_csv(ROUTE_FIXTURE))
+def routes() -> dict[str, RouteSequence]:
+    return build_route_index(
+        load_route_sequences_csv(
+            FIXTURES / "route_sequences.csv", load_arc_profiles_csv(ROUTE_FIXTURE)
+        )
+    )
 
 
 @pytest.fixture
@@ -226,11 +231,11 @@ def test_unmapped_cargo_code_raises() -> None:
 
 def test_conversion_accepts_and_rejects_the_expected_rows(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     result = trips_to_arc_requests(trips, routes=routes, vessel_types=vessel_types)
-    assert [request.case_row_id for request in result.requests] == [
+    assert [request.source_row_id for request in result.requests] == [
         "fixture:0",
         "fixture:1",
         "fixture:2",
@@ -238,7 +243,7 @@ def test_conversion_accepts_and_rejects_the_expected_rows(
     ]
     assert [(rejection.source_row_id, rejection.reason) for rejection in result.rejections] == [
         ("fixture:4", TripRejectionReason.UNKNOWN_VESSEL_TYPE),
-        ("fixture:5", TripRejectionReason.MISSING_ROUTE_PROFILE),
+        ("fixture:5", TripRejectionReason.MISSING_ARC_SEQUENCE),
         ("fixture:6", TripRejectionReason.NON_POSITIVE_CAPACITY),
         ("fixture:7", TripRejectionReason.MISSING_CARGO_WEIGHT),
         ("fixture:8", TripRejectionReason.UNKNOWN_APPEARANCE),
@@ -247,12 +252,12 @@ def test_conversion_accepts_and_rejects_the_expected_rows(
 
 def test_first_request_matches_a_hand_calculation(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     result = trips_to_arc_requests(trips, routes=routes, vessel_types=vessel_types)
     request = result.requests[0]
-    assert request.arc_id == "NLAAA->NLBBB"
+    assert request.arc_id == "ab"
     assert request.vessel_rws_class == "M1"
     assert request.waterway_cemt_class == "Va"
     assert request.appearance == "droge_bulk"
@@ -260,13 +265,13 @@ def test_first_request_matches_a_hand_calculation(
     assert request.distance_km == pytest.approx(50.0)
     assert request.realised_speed_km_per_h == pytest.approx(12.0)
     assert request.is_loaded is True
-    assert request.route_source == "synthetic-test"
-    assert request.vessel_class_source == "reference:vessel_type_id=2"
+    assert request.route_source == "synthetic-test;arc:synthetic-test"
+    assert request.vessel_class_source == "observed:SK_CODE/sk_code"
 
 
 def test_empty_trip_is_marked_unloaded(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     result = trips_to_arc_requests(trips, routes=routes, vessel_types=vessel_types)
@@ -279,7 +284,7 @@ def test_empty_trip_is_marked_unloaded(
 
 
 def test_container_trip_without_cargo_weight_stays_loaded(
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     result = trips_to_arc_requests(
@@ -294,7 +299,7 @@ def test_container_trip_without_cargo_weight_stays_loaded(
 
 def test_conversion_is_independent_of_input_order(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     forward = trips_to_arc_requests(trips, routes=routes, vessel_types=vessel_types)
@@ -310,7 +315,7 @@ def test_conversion_is_independent_of_input_order(
 
 
 def test_duplicate_source_row_identifiers_are_rejected(
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     with pytest.raises(ValidationError, match="Duplicate source_row_id"):
@@ -318,13 +323,19 @@ def test_duplicate_source_row_identifiers_are_rejected(
 
 
 def test_duplicate_route_pair_is_rejected() -> None:
-    profile = RouteProfile("NLAAA", "NLBBB", 50.0, "Va", 12.0, "synthetic-test")
-    with pytest.raises(ValidationError, match="Duplicate route profile"):
+    profile = RouteSequence(
+        "r",
+        "NLAAA",
+        "NLBBB",
+        (ArcProfile("ab", "a", "b", 50.0, "Va", 12.0, "synthetic-test"),),
+        "synthetic-test",
+    )
+    with pytest.raises(ValidationError, match="Duplicate route_id"):
         build_route_index((profile, profile))
 
 
 def test_empty_route_table_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="At least one route profile"):
+    with pytest.raises(ValidationError, match="At least one route sequence"):
         build_route_index(())
 
 
@@ -339,12 +350,11 @@ def test_repeated_identical_vessel_type_mapping_is_accepted() -> None:
 
 def test_unsupported_waterway_class_is_rejected() -> None:
     with pytest.raises(ValidationError, match="CEMT"):
-        RouteProfile("NLAAA", "NLBBB", 50.0, "IX", 12.0, "synthetic-test")
+        ArcProfile("ab", "a", "b", 50.0, "IX", 12.0, "synthetic-test")
 
 
-def test_zero_distance_route_is_rejected() -> None:
-    with pytest.raises(ValidationError, match="distance_km"):
-        RouteProfile("NLAAA", "NLBBB", 0.0, "Va", 12.0, "synthetic-test")
+def test_zero_distance_structure_is_allowed() -> None:
+    assert ArcProfile("aa", "a", "a", 0.0, "Va", 12.0, "synthetic-test").distance_km == 0
 
 
 def test_appearance_map_requires_single_digit_chapters() -> None:
@@ -376,7 +386,7 @@ def test_appearance_map_rejects_conflicting_chapters(tmp_path: Path) -> None:
 
 def test_appearance_map_overrides_the_built_in_assumption(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     mapping = load_appearance_map_csv(APPEARANCE_FIXTURE)
@@ -402,7 +412,7 @@ def test_vessel_type_map_rejects_conflicting_rows(tmp_path: Path) -> None:
 
 def test_summary_reports_coverage_and_assumptions(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     result = trips_to_arc_requests(trips, routes=routes, vessel_types=vessel_types)
@@ -412,7 +422,7 @@ def test_summary_reports_coverage_and_assumptions(
     assert summary["accepted_share"] == pytest.approx(4 / 9)
     assert summary["rejection_reason_counts"] == {
         "missing_cargo_weight": 1,
-        "missing_route_profile": 1,
+        "missing_arc_sequence": 1,
         "non_positive_capacity": 1,
         "unknown_appearance": 1,
         "unknown_vessel_type": 1,
@@ -425,7 +435,7 @@ def test_summary_reports_coverage_and_assumptions(
 
 def test_request_frame_starts_with_the_runner_columns(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
 ) -> None:
     result = trips_to_arc_requests(trips, routes=routes, vessel_types=vessel_types)
@@ -448,7 +458,7 @@ def test_rejection_frame_keeps_its_columns_when_empty() -> None:
 
 def test_requests_feed_the_cost_calculator(
     trips: tuple[TripObservation, ...],
-    routes: dict[tuple[str, str], RouteProfile],
+    routes: dict[str, RouteSequence],
     vessel_types: dict[int, str],
     cost_rates: CostRates,
     scenario: ScenarioCostParameters,
@@ -459,7 +469,6 @@ def test_requests_feed_the_cost_calculator(
     fuel = fuel_provider.resolve(
         request.vessel_rws_class,
         request.waterway_cemt_class,
-        VesselProfile.GENERAL,
         loading_ratio=request.loading_ratio,
     )
     arc = calculate_arc_cost(

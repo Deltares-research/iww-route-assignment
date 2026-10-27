@@ -1,21 +1,21 @@
 """Public domain contracts."""
 
+from .arcs import ArcProfile, RouteSequence, TripRoute
 from .classifications import (
     CEMT_ORDER,
     cemt_rank,
     normalise_cemt_class,
     normalise_rws_class,
-    profile_for_appearance,
     vessel_family,
 )
 from .enums import (
     Confidence,
     FuelResolutionMethod,
     FuelResolutionPolicy,
+    IvsFormat,
     LoadingCategory,
     RouteCostMetric,
     TripRejectionReason,
-    VesselProfile,
 )
 from .models import (
     AppearanceRule,
@@ -27,7 +27,6 @@ from .models import (
     FuelProxyWeights,
     LoadingAnchors,
     ResolvedFuelRate,
-    RouteProfile,
     ScenarioCostParameters,
     TripCostBreakdown,
     TripCostInput,
@@ -36,12 +35,30 @@ from .models import (
     TripRejection,
     VesselReference,
 )
+from .navigability import (
+    ArcNavigability,
+    ArcRestriction,
+    NavigabilityFinding,
+    NavigabilityMargins,
+    NavigabilityVessel,
+    RouteNavigability,
+)
 
 __all__ = [
+    "ArcNavigability",
+    "ArcRestriction",
+    "NavigabilityFinding",
+    "NavigabilityMargins",
+    "NavigabilityStatus",
+    "NavigabilityVessel",
+    "RestrictionType",
+    "RouteNavigability",
+    "StructureType",
     "CEMT_ORDER",
     "AppearanceRule",
     "ArcCostBreakdown",
     "ArcCostRequest",
+    "ArcProfile",
     "ArcTravelInput",
     "Confidence",
     "CostRates",
@@ -53,19 +70,19 @@ __all__ = [
     "LoadingCategory",
     "ResolvedFuelRate",
     "RouteCostMetric",
-    "RouteProfile",
+    "RouteSequence",
     "ScenarioCostParameters",
     "TripCostBreakdown",
     "TripCostInput",
     "TripFixedCostBreakdown",
     "TripObservation",
     "TripRejection",
+    "TripRoute",
     "TripRejectionReason",
-    "VesselProfile",
+    "IvsFormat",
     "VesselReference",
     "cemt_rank",
     "normalise_cemt_class",
     "normalise_rws_class",
-    "profile_for_appearance",
     "vessel_family",
 ]

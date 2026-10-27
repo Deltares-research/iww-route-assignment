@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import math
 import pathlib
+import re
 
 from ..exceptions import ValidationError
-from .enums import VesselProfile
 
 CEMT_ORDER: tuple[str, ...] = (
     "0",
@@ -26,6 +26,11 @@ CEMT_ORDER: tuple[str, ...] = (
 _RWS_ALIASES = {
     "BII-6B": "BII-6b",
 }
+
+# Convoy labels end in a length/beam letter written in either case by different sources,
+# for example BII-2b (IVS) and BII-2B (DTV). Only the letter case is canonicalised here;
+# different codes such as B04 and BO4 are never treated as the same class.
+_CONVOY_SUFFIX = re.compile(r"^(BII-\d|C\d)([LB])$")
 
 _CEMT_ALIASES = {
     "IVA": "IV",
@@ -67,6 +72,9 @@ def normalise_rws_class(value: str) -> str:
         return _RWS_ALIASES[upper]
     if upper.startswith("M") and upper[1:].isdigit():
         return upper
+    convoy = _CONVOY_SUFFIX.match(upper)
+    if convoy:
+        return f"{convoy.group(1)}{convoy.group(2).lower()}"
     return label
 
 
@@ -97,15 +105,6 @@ def vessel_family(vessel_rws_class: str) -> str:
     if canonical.startswith("C"):
         return "coupled_convoy"
     return "other"
-
-
-def profile_for_appearance(appearance: str) -> VesselProfile:
-    """Map cargo appearance to the retained fuel-source profile."""
-    if not appearance.strip():
-        raise ValidationError("appearance must not be empty")
-    if "container" in appearance.casefold():
-        return VesselProfile.CONTAINER
-    return VesselProfile.GENERAL
 
 
 def get_ship_dimensions(

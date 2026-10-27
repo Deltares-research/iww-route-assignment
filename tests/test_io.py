@@ -8,7 +8,6 @@ from iww_route_assignment import (
     ArcTravelInput,
     LoadingCategory,
     ValidationError,
-    VesselProfile,
     calculate_arc_cost,
 )
 from iww_route_assignment.io import (
@@ -28,7 +27,7 @@ def test_validated_loaders_and_selection() -> None:
     fuel = load_fuel_observations_csv(FIXTURES / "fuel_observations.csv")
     vessels = load_vessel_references_csv(FIXTURES / "vessel_references.csv")
     rates = load_cost_rates_csv(FIXTURES / "cost_rates.csv")
-    assert len(fuel) == 5
+    assert len(fuel) == 4
     assert len(vessels) == 4
     assert select_cost_rates(rates, "dry BULK", "M1").maintenance_eur_per_km == 3.0
 
@@ -37,9 +36,7 @@ def test_load_fuel_provider_convenience() -> None:
     provider = load_fuel_provider(
         FIXTURES / "fuel_observations.csv", FIXTURES / "vessel_references.csv"
     )
-    result = provider.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.LIGHT
-    )
+    result = provider.resolve("M1", "I", loading_category=LoadingCategory.LIGHT)
     assert result.fuel_rate_l_per_h == 40.0
 
 
@@ -86,12 +83,8 @@ def test_missing_numeric_value_is_rejected(tmp_path: Path) -> None:
 
 
 def test_flat_result_and_fuel_summary(cost_rates, scenario, fuel_provider) -> None:
-    observed = fuel_provider.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.LIGHT
-    )
-    proxied = fuel_provider.resolve(
-        "M3", "Va", VesselProfile.GENERAL, loading_category=LoadingCategory.LIGHT
-    )
+    observed = fuel_provider.resolve("M1", "I", loading_category=LoadingCategory.LIGHT)
+    proxied = fuel_provider.resolve("M3", "Va", loading_category=LoadingCategory.LIGHT)
     result = calculate_arc_cost(ArcTravelInput(10.0, 10.0), cost_rates, scenario, observed)
     record = arc_cost_to_record("arc-1", result)
     summary = summarise_fuel_resolutions((observed, proxied))
@@ -109,7 +102,7 @@ def test_integration_output_has_stable_columns(
 ) -> None:
     rows = []
     for index, ratio in enumerate((0.0, 0.5, 1.0), start=1):
-        fuel = fuel_provider.resolve("M1", "II", VesselProfile.GENERAL, loading_ratio=ratio)
+        fuel = fuel_provider.resolve("M1", "II", loading_ratio=ratio)
         result = calculate_arc_cost(
             ArcTravelInput(float(index * 10), 10.0), cost_rates, scenario, fuel
         )

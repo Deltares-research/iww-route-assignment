@@ -18,7 +18,6 @@ from ..domain.enums import (
     FuelResolutionMethod,
     FuelResolutionPolicy,
     LoadingCategory,
-    VesselProfile,
 )
 from ..domain.models import (
     FuelConsumptionObservation,
@@ -37,7 +36,6 @@ class FuelConsumptionProvider(Protocol):
         self,
         vessel_rws_class: str,
         waterway_cemt_class: str,
-        vessel_profile: VesselProfile,
         *,
         loading_ratio: float | None = None,
         loading_category: LoadingCategory | None = None,
@@ -71,7 +69,7 @@ class _WaterwayResult:
 
 
 class TableFuelConsumptionProvider:
-    """Resolve rates from profile-specific observations with configurable coverage policy."""
+    """Resolve unambiguous vessel/waterway observations with configurable coverage policy."""
 
     def __init__(
         self,
@@ -85,31 +83,28 @@ class TableFuelConsumptionProvider:
         self._policy = FuelResolutionPolicy(policy)
         self._loading_anchors = loading_anchors or LoadingAnchors()
         self._proxy_weights = proxy_weights or FuelProxyWeights()
-        self._observations: dict[tuple[str, str, VesselProfile], FuelConsumptionObservation] = {}
-        self._by_vessel_profile: dict[
-            tuple[str, VesselProfile], list[FuelConsumptionObservation]
-        ] = {}
+        self._observations: dict[tuple[str, str], FuelConsumptionObservation] = {}
+        self._by_vessel: dict[str, list[FuelConsumptionObservation]] = {}
 
         for observation in observations:
             key = (
                 observation.vessel_rws_class,
                 observation.waterway_cemt_class,
-                observation.vessel_profile,
             )
             previous = self._observations.get(key)
             if previous is not None:
                 raise DuplicateFuelObservationError(
                     "Duplicate fuel observation for "
-                    f"vessel={key[0]!r}, waterway={key[1]!r}, profile={key[2].value!r}: "
+                    f"vessel={key[0]!r}, waterway={key[1]!r}: "
                     f"{previous.source_row_id!r} and {observation.source_row_id!r}"
                 )
             self._observations[key] = observation
-            self._by_vessel_profile.setdefault((key[0], key[2]), []).append(observation)
+            self._by_vessel.setdefault(key[0], []).append(observation)
 
         if not self._observations:
             raise ValidationError("At least one fuel observation is required")
 
-        for rows in self._by_vessel_profile.values():
+        for rows in self._by_vessel.values():
             rows.sort(key=lambda row: (cemt_rank(row.waterway_cemt_class), row.source_row_id))
 
         references = list(vessel_references)
@@ -121,7 +116,6 @@ class TableFuelConsumptionProvider:
         self,
         vessel_rws_class: str,
         waterway_cemt_class: str,
-        vessel_profile: VesselProfile,
         *,
         loading_ratio: float | None = None,
         loading_category: LoadingCategory | None = None,
@@ -129,26 +123,18 @@ class TableFuelConsumptionProvider:
         """Resolve an observed, interpolated or explicitly proxied rate."""
         requested_vessel = normalise_rws_class(vessel_rws_class)
         requested_waterway = normalise_cemt_class(waterway_cemt_class)
-        try:
-            requested_profile = VesselProfile(vessel_profile)
-        except ValueError as error:
-            raise ValidationError(f"Unsupported vessel_profile {vessel_profile!r}") from error
         self._validate_loading_request(loading_ratio, loading_category)
 
         selected_vessel = requested_vessel
         proxy_distance: float | None = None
         proxy_terms: tuple[tuple[str, float], ...] = ()
-        rows = self._by_vessel_profile.get((requested_vessel, requested_profile))
+        rows = self._by_vessel.get(requested_vessel)
 
         if not rows:
             if self._policy is FuelResolutionPolicy.STRICT:
-                raise self._coverage_error(
-                    requested_vessel, requested_waterway, requested_profile, "vessel/profile"
-                )
-            selected_vessel, proxy_distance, proxy_terms = self._nearest_vessel(
-                requested_vessel, requested_profile
-            )
-            rows = self._by_vessel_profile[(selected_vessel, requested_profile)]
+                raise self._coverage_error(requested_vessel, requested_waterway, "vessel")
+            selected_vessel, proxy_distance, proxy_terms = self._nearest_vessel(requested_vessel)
+            rows = self._by_vessel[selected_vessel]
 
         waterway = self._resolve_waterway(
             rows,
@@ -176,8 +162,6 @@ class TableFuelConsumptionProvider:
             selected_vessel_rws_class=selected_vessel,
             requested_waterway_cemt_class=requested_waterway,
             selected_waterway_cemt_class=waterway.selected_class,
-            requested_profile=requested_profile,
-            selected_profile=requested_profile,
             raw_loading_ratio=waterway.loading.raw_ratio,
             applied_loading_ratio=waterway.loading.applied_ratio,
             lower_loading_category=waterway.loading.lower_category,
@@ -275,7 +259,6 @@ class TableFuelConsumptionProvider:
             raise self._coverage_error(
                 row.vessel_rws_class,
                 requested_waterway,
-                row.vessel_profile,
                 "bounded waterway coverage",
             )
 
@@ -365,7 +348,7 @@ class TableFuelConsumptionProvider:
         )
 
     def _nearest_vessel(
-        self, requested_vessel: str, profile: VesselProfile
+        self, requested_vessel: str
     ) -> tuple[str, float, tuple[tuple[str, float], ...]]:
         target = self._references.get(requested_vessel)
         if target is None:
@@ -375,13 +358,11 @@ class TableFuelConsumptionProvider:
             )
 
         available_classes = sorted(
-            vessel
-            for vessel, available_profile in self._by_vessel_profile
-            if available_profile is profile and vessel in self._references
+            vessel for vessel in self._by_vessel if vessel in self._references
         )
         if not available_classes:
             raise FuelCoverageError(
-                f"Cannot proxy vessel {requested_vessel!r}: profile {profile.value!r} has no "
+                f"Cannot proxy vessel {requested_vessel!r}: no "
                 "fuel observations with vessel reference attributes"
             )
 
@@ -439,12 +420,9 @@ class TableFuelConsumptionProvider:
         )
 
     @staticmethod
-    def _coverage_error(
-        vessel: str, waterway: str, profile: VesselProfile, stage: str
-    ) -> FuelCoverageError:
+    def _coverage_error(vessel: str, waterway: str, stage: str) -> FuelCoverageError:
         return FuelCoverageError(
-            f"No fuel coverage for vessel={vessel!r}, waterway={waterway!r}, "
-            f"profile={profile.value!r} at {stage}"
+            f"No fuel coverage for vessel={vessel!r}, waterway={waterway!r}, at {stage}"
         )
 
 
@@ -466,7 +444,6 @@ class FallbackFuelConsumptionProvider:
         self,
         vessel_rws_class: str,
         waterway_cemt_class: str,
-        vessel_profile: VesselProfile,
         *,
         loading_ratio: float | None = None,
         loading_category: LoadingCategory | None = None,
@@ -476,7 +453,6 @@ class FallbackFuelConsumptionProvider:
             return self._primary.resolve(
                 vessel_rws_class,
                 waterway_cemt_class,
-                vessel_profile,
                 loading_ratio=loading_ratio,
                 loading_category=loading_category,
             )
@@ -484,7 +460,6 @@ class FallbackFuelConsumptionProvider:
             fallback = self._fallback.resolve(
                 vessel_rws_class,
                 waterway_cemt_class,
-                vessel_profile,
                 loading_ratio=loading_ratio,
                 loading_category=loading_category,
             )

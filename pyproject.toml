@@ -4,10 +4,10 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iww-route-assignment"
-version = "0.1.0"
+version = "0.3.0"
 description = "Auditable inland-waterway route assignment modelling"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,!=3.14.1"
 license = { file = "LICENSE" }
 authors = [{ name = "Deltares research and development" }]
 keywords = ["inland-waterways", "routing", "transport", "assignment"]
@@ -26,6 +26,7 @@ dependencies = [
     "pandas>=2.2",
     "pyarrow>=26.0.0",
     "scipy>=1.18.1",
+    "shapely>=2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +50,9 @@ packages = ["src/iww_route_assignment"]
 
 [tool.hatch.build]
 exclude = [
+    "/CLAUDE.md",
+    "/CLAUDE.local.md",
+    "/.claude",
     "/.github/skills",
     "/.idea",
     "/data",

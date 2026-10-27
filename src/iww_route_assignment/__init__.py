@@ -1,5 +1,6 @@
 """Auditable inland-waterway route-assignment modelling."""
 
+from .application import CostedArc, CostedTrip, cost_trip_requests
 from .costs import (
     FallbackFuelConsumptionProvider,
     FuelConsumptionProvider,
@@ -15,6 +16,7 @@ from .domain import (
     AppearanceRule,
     ArcCostBreakdown,
     ArcCostRequest,
+    ArcProfile,
     ArcTravelInput,
     Confidence,
     CostRates,
@@ -22,11 +24,12 @@ from .domain import (
     FuelProxyWeights,
     FuelResolutionMethod,
     FuelResolutionPolicy,
+    IvsFormat,
     LoadingAnchors,
     LoadingCategory,
     ResolvedFuelRate,
     RouteCostMetric,
-    RouteProfile,
+    RouteSequence,
     ScenarioCostParameters,
     TripCostBreakdown,
     TripCostInput,
@@ -34,15 +37,30 @@ from .domain import (
     TripObservation,
     TripRejection,
     TripRejectionReason,
-    VesselProfile,
+    TripRoute,
     VesselReference,
-    profile_for_appearance,
+)
+from .domain.enums import NavigabilityStatus, RestrictionType, StructureType
+from .domain.navigability import (
+    ArcNavigability,
+    ArcRestriction,
+    NavigabilityFinding,
+    NavigabilityMargins,
+    NavigabilityVessel,
+    RouteNavigability,
 )
 from .exceptions import (
     DuplicateFuelObservationError,
     FuelCoverageError,
     IWWRouteAssignmentError,
     ValidationError,
+)
+from .navigability import (
+    build_restriction_index,
+    evaluate_arc,
+    evaluate_route,
+    navigable_arc_mask,
+    restrict_choice_weights,
 )
 from .preparation import (
     DEFAULT_NSTR_APPEARANCE,
@@ -56,12 +74,30 @@ from .preparation import (
 from .routing_costs import RoutePricing, RoutingCostConfig, VoyageCostModel
 
 __all__ = [
+    "ArcNavigability",
+    "ArcRestriction",
+    "NavigabilityFinding",
+    "NavigabilityMargins",
+    "NavigabilityStatus",
+    "NavigabilityVessel",
+    "RestrictionType",
+    "RouteNavigability",
+    "StructureType",
+    "build_restriction_index",
+    "evaluate_arc",
+    "evaluate_route",
+    "navigable_arc_mask",
+    "restrict_choice_weights",
+    "CostedArc",
+    "CostedTrip",
+    "cost_trip_requests",
     "CEMT_ORDER",
     "DEFAULT_NSTR_APPEARANCE",
     "NSTR_APPEARANCE_ASSUMPTION",
     "AppearanceRule",
     "ArcCostBreakdown",
     "ArcCostRequest",
+    "ArcProfile",
     "ArcTravelInput",
     "Confidence",
     "CostRates",
@@ -78,9 +114,7 @@ __all__ = [
     "LoadingCategory",
     "ResolvedFuelRate",
     "RouteCostMetric",
-    "RoutePricing",
-    "RouteProfile",
-    "RoutingCostConfig",
+    "RouteSequence",
     "ScenarioCostParameters",
     "TableFuelConsumptionProvider",
     "TripConversionResult",
@@ -89,10 +123,13 @@ __all__ = [
     "TripFixedCostBreakdown",
     "TripObservation",
     "TripRejection",
+    "TripRoute",
     "TripRejectionReason",
     "ValidationError",
-    "VesselProfile",
+    "IvsFormat",
     "VesselReference",
+    "RoutePricing",
+    "RoutingCostConfig",
     "VoyageCostModel",
     "build_route_index",
     "build_vessel_type_index",
@@ -101,9 +138,8 @@ __all__ = [
     "calculate_arc_costs",
     "calculate_trip_fixed_cost",
     "combine_trip_cost",
-    "profile_for_appearance",
     "summarise_trip_conversion",
     "trips_to_arc_requests",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.3.0"

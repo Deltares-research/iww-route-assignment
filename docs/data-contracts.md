@@ -9,6 +9,9 @@
 5. [Arc requests](#arc-requests)
 6. [Arc results](#arc-results)
 7. [Trip observations](#trip-observations)
+8. [Arc restrictions](#arc-restrictions)
+9. [Navigability vessels](#navigability-vessels)
+10. [Navigability results](#navigability-results)
 
 Header-only templates for every table are committed in [`schemas/`](../schemas/README.md). Controlled values are listed in [Enumerations](enumerations.md).
 
@@ -29,13 +32,12 @@ Required CSV fields:
 | `source_row_id` | stable source identifier |
 | `vessel_rws_class` | canonical or supported alias |
 | `waterway_cemt_class` | ordered CEMT class |
-| `vessel_profile` | `general` or `container` |
 | `diesel_light_l_per_h` | light-loading fuel rate |
 | `diesel_medium_l_per_h` | medium-loading fuel rate |
 | `diesel_heavy_l_per_h` | heavy-loading fuel rate |
 | `source_dataset` | source and version label |
 
-The key `(vessel_rws_class, waterway_cemt_class, vessel_profile)` must be unique. Generated CSV index columns are rejected.
+The canonical key `(vessel_rws_class, waterway_cemt_class)` must be unique. Fuel has no goods/profile column. Select one source dataset explicitly when notebook sources conflict; never merge or average them silently. Generated CSV index columns are rejected.
 
 [Back to contents](#contents)
 
@@ -57,7 +59,9 @@ Only `maint_km` is distance based. `interest_pct_h` is EUR per percentage point 
 
 ## Arc requests
 
-One row is one directed arc for one trip class. The runner requires ten columns and accepts seven optional columns that default to zero or to a derived value.
+One row is one traversal of a supplied directed arc. The 0.2 runner requires the sixteen columns in `ARC_REQUEST_COLUMNS`; six optional delay fields default to zero.
+
+Identity fields are `case_row_id`, `source_row_id`, `route_id`, `sequence`, `route_arc_count`, `arc_id`, `from_node_id` and `to_node_id`. Sequence numbers are unique, contiguous and zero-based within each trip. Repeated edges have different sequence numbers. Incomplete, disconnected or inconsistent trips fail before totals are returned.
 
 Every column is consumed by exactly one of four consumers, which is the quickest way to predict what a change to a cell will move.
 
@@ -65,10 +69,9 @@ Every column is consumed by exactly one of four consumers, which is the quickest
 | --- | --- | --- | --- | --- |
 | `case_row_id` | Yes | text | Pass-through | Audit identifier. Copied to the result, never used in arithmetic. |
 | `arc_id` | Yes | text | Pass-through | Audit identifier. Copied to the result, never used in arithmetic. |
-| `appearance` | Yes | text | Rate lookup and profile default | Selects the cost-rate row, and derives the vessel profile when `vessel_profile` is blank. |
+| `appearance` | Yes | text | Monetary rate lookup | Selects the cost-rate row only; does not select fuel. |
 | `vessel_rws_class` | Yes | text | Rate lookup and fuel lookup | Used by both `select_cost_rates` and the fuel provider. |
 | `waterway_cemt_class` | Yes | CEMT class | Fuel lookup | Selects or interpolates the fuel row. Does not affect cost rates. |
-| `vessel_profile` | No | `general` or `container` | Fuel lookup | Overrides the appearance-derived profile. |
 | `loading_ratio` | Yes | 0 to 1 | Fuel lookup | Interpolates between loading anchors. Clamped, with a note, if outside the range. |
 | `distance_km` | Yes | km | `ArcTravelInput` | Movement time and the only distance-based cost. |
 | `realised_speed_km_per_h` | Yes | km per hour | `ArcTravelInput` | Movement time. Must be greater than zero. |
@@ -86,12 +89,12 @@ Grouped by consumer:
 - `ArcTravelInput`: `distance_km`, `realised_speed_km_per_h`, `lock_service_time_h`, `lock_waiting_time_h`, `bridge_service_time_h`, `real_delay_time_h`, `calibration_delay_time_h`, `relaxation_penalty_time_h`. Distance must be finite and non-negative, realised speed strictly positive, and the six time fields default to zero.
 - `TripCostInput`: `cargo_t`, `is_loaded`.
 - `select_cost_rates`: `appearance` and `vessel_rws_class`, matched case-insensitively. Exactly one rate row must match, otherwise the run fails.
-- `FuelConsumptionProvider.resolve`: `vessel_rws_class`, `waterway_cemt_class`, `vessel_profile` and `loading_ratio`.
+- `FuelConsumptionProvider.resolve`: `vessel_rws_class`, `waterway_cemt_class` and `loading_ratio` (or one loading category).
 - Pass-through identifiers: `case_row_id` and `arc_id`.
 
-`is_loaded` accepts `true`, `false`, `1`, `0`, `yes` and `no`, compared case-insensitively. Any other text is rejected.
+`is_loaded` accepts `true`, `false`, `1` and `0`, compared case-insensitively. Any other text is rejected.
 
-The upstream `ArcCostRequest` value object carries five further provenance fields, `source_row_id`, `vessel_class_source`, `appearance_source`, `route_source` and `loading_ratio_source`, plus free-text `notes`. `arc_requests_to_frame` writes them after the ten required columns. The runner ignores them, so they survive a round trip as documentation of where each derived cell came from.
+`ArcCostRequest` also carries `vessel_class_source`, `appearance_source`, `route_source`, `loading_ratio_source`, `cargo_unit_source` and `notes`. The runner preserves these in per-arc results. Supplied fields without provenance receive an explicit `supplied` label.
 
 [Back to contents](#contents)
 
@@ -107,7 +110,9 @@ The upstream `ArcCostRequest` value object carries five further provenance field
 | Fuel | `sailing_fuel_l`, `idle_fuel_l`, `sailing_fuel_cost_eur`, `idle_fuel_cost_eur` |
 | Totals | `reported_variable_cost_eur`, `choice_only_cost_eur`, `choice_cost_eur` |
 | Fuel audit | every `ResolvedFuelRate` field with the prefix `fuel_` |
-| Runner additions | `fixed_trip_cost_eur`, `reported_total_cost_eur`, `choice_total_cost_eur` |
+| Trip output only | `fixed_cost_eur`, `reported_total_cost_eur`, `choice_total_cost_eur`, `total_cost_eur` |
+
+`cost_results.csv` holds per-traversal components. `trip_cost_results.csv` adds fixed cargo-handling costs once per trip. `total_cost_eur` aliases the penalty-inclusive `choice_total_cost_eur`; `reported_total_cost_eur` excludes choice-only penalties. Zero fixed cost never suppresses a total. Empty trips still incur operating costs.
 
 The nested fuel audit is never dropped or summarised away. `fuel_method` and `fuel_confidence` take the values in [Enumerations](enumerations.md#fuel-resolution-method); `fuel_source_row_ids`, `fuel_source_datasets`, `fuel_notes` and `fuel_proxy_distance_terms` are JSON encoded so a single CSV cell stays parsable.
 
@@ -121,10 +126,11 @@ The external illustrative runner documents its request CSV in `runs/test_case_co
 
 | Export column | Field | Derivation |
 | --- | --- | --- |
-| `unlo_herkomst`, `unlo_bestemming` | `origin_locode`, `destination_locode` | Upper-cased. Used as the route-profile key and to build `arc_id`. |
-| `v15_1_scheepstype_rws` | `vessel_type_id` | Joined to `ship_type_id` to obtain `vessel_rws_class`. |
+| `unlo_herkomst`, `unlo_bestemming` | `origin_locode`, `destination_locode` | Upper-cased. Matched to supplied route ODs, never used to invent edges. |
+| `sk_code` | `vessel_rws_class` | Preferred observed vessel class. |
+| `v15_1_scheepstype_rws` | `vessel_type_id` | Retained numeric source code. Only an explicit verified crosswalk may resolve a missing observed class; it is not a BIVAS ID. |
 | `v18_laadvermogen` | `capacity_t` | Tonnes in the source. Denominator of the loading ratio. |
-| `v38_vervoerd_gewicht` | `cargo_t` | Kilogrammes in the source, multiplied by `CARGO_WEIGHT_KG_TO_T`. |
+| `v38_vervoerd_gewicht` | `cargo_t` | Weekly preset converts kilogrammes to tonnes by multiplying by 0.001. |
 | `v30_4_containers_teu_s` | `containers_teu` | A positive count sets the appearance to `container`. |
 | `nstr_nw` | `cargo_code` | Leading digit is the NSTR chapter used for the appearance mapping. |
 | `v28_beladingscode` | `loading_code` | Retained for auditing. Value `1` marks an empty trip. |
@@ -137,9 +143,85 @@ Derivation rules, each recorded in a source column of the request:
 - a trip with containers takes the `container` appearance, source `observed:containers_teu`;
 - a trip with no cargo code that is recorded empty takes the residual appearance, source `assumption:empty-trip-appearance-v1`;
 - any other trip takes the appearance of its NSTR chapter, source label supplied by the mapping row, defaulting to `assumption:nstr-chapter-appearance-v1`;
-- `distance_km`, `waterway_cemt_class` and `realised_speed_km_per_h` come from the route profile for the pair, which the trip register does not contain.
+- Distance, class, speed and delays come from supplied `ArcProfile` snapshots, not observed IVS journey fields.
 
 Row identifiers are generated from the positional row number of the export. They label a record for auditing and are never used to match a record against a reference table.
+
+### Extended IVS
+
+Select `extended_2026` explicitly. Identity is `dataset:Jaar:Pseudo_ReisID`, preserving the original ID as text and rejecting duplicates. `SK_CODE`, `UNLO_Herkomst`, `UNLO_Bestemming` and `Laadvermogen` supply class, OD and capacity in tonnes. Declare `Lading` units as `t` or `kg`; the declaration is recorded as an assumption, not verification. `Aantal_Schepen` must be 1 and does not multiply costs.
+
+`Tankvaart`, `Droge bulkvaart` and `Containervaart` map to `natte_bulk`, `droge_bulk` and `container`. Unknown segments are rejected or require a sourced mapping via `read_ivs_frame`. Missing TEU/NSTR stays unknown. Conflicting event-time columns and contradictory empty-loading codes are rejected. One raw export index may be dropped only with explicit permission. The strict adapter raises on rejected rows; `read_ivs_frame` returns audited rejections.
+
+### Supplied routes
+
+`arc_profiles.csv` describes directed edges. `route_sequences.csv` supplies ordered traversals and route OD labels. Optional `trip_routes.csv` associates source trips with route IDs. Without associations, only a unique supplied route for an OD is accepted; alternatives are never chosen by row order. Same-node trips need an explicit zero-distance arc. There is no route search, snapping or network repair here. Navigability is checked separately; see [Navigability](navigability.md).
+
+[Back to contents](#contents)
+
+## Arc restrictions
+
+`arc_restrictions.csv`, read by `load_arc_restrictions_csv`. One row per structure on a directed arc. A waterway section is also a structure, with type `waterway`.
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `arc_id` | yes | arc identifier matching `arc_profiles.csv` |
+| `structure_id` | yes | structure identifier; unique per arc |
+| `structure_type` | yes | `waterway`, `bridge`, `lock` or `weir`; case-insensitive |
+| `max_length_m` | no | maximum permitted vessel length; blank means no limit |
+| `max_beam_m` | no | maximum permitted vessel beam; blank means no limit |
+| `max_draught_m` | no | maximum permitted vessel draught, not water depth; blank means no limit |
+| `max_air_draught_m` | no | maximum permitted air draught, not structure height; blank means no limit |
+| `dangerous_goods_permitted` | no | `true`, `false`, `yes`, `no`, `1` or `0`; blank means `true` |
+| `is_open` | no | same values; blank means `true`; `false` blocks every vessel |
+| `source` | yes | provenance label copied to every finding |
+
+Limits must be finite and greater than zero. Duplicate `(arc_id, structure_id)` pairs are rejected when the index is built.
+
+[Back to contents](#contents)
+
+## Navigability vessels
+
+`navigability_vessels.csv`, read by `load_navigability_vessels_csv`. One row per vessel state or trip class.
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `vessel_id` | yes | unique vessel-state identifier |
+| `length_m` | yes | vessel length |
+| `beam_m` | yes | vessel beam |
+| `draught_m` | yes | draught for this loading state |
+| `air_draught_m` | no | height above the waterline; blank is unknown and makes height-limited arcs `undetermined` |
+| `carries_dangerous_goods` | no | boolean as above; blank means `false` |
+| `source` | no | provenance label; blank means `unspecified` |
+
+## Assignment inputs and outputs
+
+Trips for assignment are read with `read_assignment_trips`, which uses the same validation as the extended IVS reader. It also needs two point columns, by default `Eerste_Geom` and `Laatste_Geom`, holding WKT in `points_crs`. A missing or unreadable point leaves that voyage without a point, which gives `snap_fail`. The segment `Overig` maps to `overig`, source `assumption:ivs-segment-overig-is-overig-v1`.
+
+The network and its limits come from EuRIS, see [EuRIS inputs](euris-inputs.md). Output tables are described in [Traffic assignment](assignment.md#outputs).
+
+[Back to contents](#contents)
+
+## Navigability results
+
+`route_navigability_to_frames` returns two tables.
+
+| Summary column | Meaning |
+| --- | --- |
+| `route_id`, `vessel_id` | evaluated pair |
+| `status` | [navigability status](enumerations.md#navigability-status) of the route |
+| `arc_count` | number of traversals |
+| `first_blocking_sequence` | zero-based first blocked traversal, blank if none |
+| `finding_count` | number of findings |
+
+| Finding column | Meaning |
+| --- | --- |
+| `route_id`, `vessel_id`, `sequence` | traversal position |
+| `arc_id`, `structure_id`, `structure_type` | where the finding applies; structure is blank for `coverage` |
+| `restriction`, `status` | [restriction type](enumerations.md#restriction-type) and status |
+| `required_m` | vessel value plus margin; blank for flags and unknown values |
+| `limit_m` | compared limit; blank for flags |
+| `source` | restriction source, or `restriction_index` for coverage |
 
 [Back to contents](#contents)
 

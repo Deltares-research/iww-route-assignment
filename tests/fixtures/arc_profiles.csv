@@ -1,0 +1,5 @@
+arc_id,from_node_id,to_node_id,distance_km,waterway_cemt_class,realised_speed_km_per_h,source
+ab,a,b,50.0,Va,12.0,synthetic-test
+bc,b,c,30.0,IV,10.0,synthetic-test
+
+

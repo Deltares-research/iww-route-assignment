@@ -15,11 +15,11 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from .domain.arcs import TIME_FIELDS, RouteSequence, TripRoute
 from .domain.enums import TripRejectionReason
 from .domain.models import (
     AppearanceRule,
     ArcCostRequest,
-    RouteProfile,
     TripObservation,
     TripRejection,
 )
@@ -81,18 +81,15 @@ class TripConversionResult:
     rejections: tuple[TripRejection, ...]
 
 
-def build_route_index(profiles: Iterable[RouteProfile]) -> dict[tuple[str, str], RouteProfile]:
-    """Index route profiles by origin and destination, rejecting duplicate pairs."""
-    index: dict[tuple[str, str], RouteProfile] = {}
-    for profile in profiles:
-        if profile.key in index:
-            raise ValidationError(
-                "Duplicate route profile for origin_locode="
-                f"{profile.origin_locode!r}, destination_locode={profile.destination_locode!r}"
-            )
-        index[profile.key] = profile
+def build_route_index(routes: Iterable[RouteSequence]) -> dict[str, RouteSequence]:
+    """Index supplied routes by identity without choosing by input order."""
+    index: dict[str, RouteSequence] = {}
+    for route in routes:
+        if route.route_id in index:
+            raise ValidationError(f"Duplicate route_id {route.route_id!r}")
+        index[route.route_id] = route
     if not index:
-        raise ValidationError("At least one route profile is required")
+        raise ValidationError("At least one route sequence is required")
     return index
 
 
@@ -115,17 +112,19 @@ def appearance_for_trip(
     trip: TripObservation, appearance_map: Mapping[str, AppearanceRule]
 ) -> tuple[str, str]:
     """Return the cargo appearance and its source label for one trip."""
+    if trip.appearance:
+        return trip.appearance, trip.appearance_source
     return appearance_for_cargo(trip.cargo_code, trip.cargo_t, trip.containers_teu, appearance_map)
 
 
 def appearance_for_cargo(
     cargo_code: str,
     cargo_t: float | None,
-    containers_teu: float,
+    containers_teu: float | None,
     appearance_map: Mapping[str, AppearanceRule],
 ) -> tuple[str, str]:
     """Return the cargo appearance and its source label for a cargo description."""
-    if containers_teu > 0:
+    if containers_teu is not None and containers_teu > 0:
         return CONTAINER_APPEARANCE, CONTAINER_APPEARANCE_SOURCE
     chapter = cargo_code.strip()
     if not chapter:
@@ -154,81 +153,110 @@ def loading_ratio_for_trip(trip: TripObservation) -> tuple[float, str, tuple[str
 def trips_to_arc_requests(
     trips: Iterable[TripObservation],
     *,
-    routes: Mapping[tuple[str, str], RouteProfile],
-    vessel_types: Mapping[int, str],
+    routes: Mapping[str, RouteSequence],
+    vessel_types: Mapping[int, str] | None = None,
     appearance_map: Mapping[str, AppearanceRule] | None = None,
+    trip_routes: Iterable[TripRoute] | None = None,
 ) -> TripConversionResult:
     """Derive arc-cost requests from trip records, auditing every exclusion.
 
     Records are never matched by position. A record without a vessel-class
-    mapping, a route profile or a usable capacity is rejected with a reason code
+    mapping, a supplied sequence or a usable capacity is rejected with a reason code
     instead of being repaired with a default.
     """
     mapping = DEFAULT_NSTR_APPEARANCE if appearance_map is None else appearance_map
     requests: list[ArcCostRequest] = []
     rejections: list[TripRejection] = []
+    associations: dict[str, str] = {}
+    explicit = trip_routes is not None
+    for association in trip_routes or ():
+        if association.source_row_id in associations:
+            raise ValidationError(f"Duplicate trip-route association {association.source_row_id!r}")
+        if association.route_id not in routes:
+            raise ValidationError(f"Unknown route_id {association.route_id!r}")
+        associations[association.source_row_id] = association.route_id
+    by_od: dict[tuple[str, str], list[RouteSequence]] = {}
+    for supplied_route in routes.values():
+        by_od.setdefault(
+            (supplied_route.origin_locode, supplied_route.destination_locode), []
+        ).append(supplied_route)
     seen: set[str] = set()
     for trip in trips:
         if trip.source_row_id in seen:
             raise ValidationError(f"Duplicate source_row_id {trip.source_row_id!r}")
         seen.add(trip.source_row_id)
-        outcome = _convert_trip(trip, routes, vessel_types, mapping)
+        candidates = by_od.get((trip.origin_locode, trip.destination_locode), [])
+        route = (
+            routes.get(associations.get(trip.source_row_id, ""))
+            if explicit
+            else (candidates[0] if len(candidates) == 1 else None)
+        )
+        if route is not None and (route.origin_locode, route.destination_locode) != (
+            trip.origin_locode,
+            trip.destination_locode,
+        ):
+            raise ValidationError(f"Route OD disagrees with trip {trip.source_row_id!r}")
+        outcome = _convert_trip(trip, route, vessel_types or {}, mapping)
         if isinstance(outcome, TripRejection):
             rejections.append(outcome)
         else:
-            requests.append(outcome)
+            requests.extend(outcome)
+    if set(associations).difference(seen):
+        raise ValidationError("Trip-route associations refer to absent trips")
     return TripConversionResult(requests=tuple(requests), rejections=tuple(rejections))
 
 
 def summarise_trip_conversion(result: TripConversionResult) -> dict[str, Any]:
     """Summarise coverage, rejection reasons and applied assumptions."""
-    total = len(result.requests) + len(result.rejections)
+    trip_requests = tuple({request.source_row_id: request for request in result.requests}.values())
+    total = len(trip_requests) + len(result.rejections)
     reason_counts = Counter(rejection.reason.value for rejection in result.rejections)
-    appearance_counts = Counter(request.appearance for request in result.requests)
-    source_counts = Counter(request.appearance_source for request in result.requests)
+    appearance_counts = Counter(request.appearance for request in trip_requests)
+    source_counts = Counter(request.appearance_source for request in trip_requests)
     assumed = sum(
-        request.appearance_source.startswith(ASSUMPTION_SOURCE_PREFIX)
-        for request in result.requests
+        request.appearance_source.startswith(ASSUMPTION_SOURCE_PREFIX) for request in trip_requests
     )
     clipped = sum(
         any(note.startswith("loading_ratio_clipped") for note in request.notes)
-        for request in result.requests
+        for request in trip_requests
     )
     return {
         "source_rows": total,
-        "accepted_rows": len(result.requests),
+        "accepted_rows": len(trip_requests),
+        "arc_requests": len(result.requests),
         "rejected_rows": len(result.rejections),
-        "accepted_share": len(result.requests) / total if total else 0.0,
+        "accepted_share": len(trip_requests) / total if total else 0.0,
         "rejection_reason_counts": dict(sorted(reason_counts.items())),
         "appearance_counts": dict(sorted(appearance_counts.items())),
         "appearance_source_counts": dict(sorted(source_counts.items())),
         "assumed_appearance_rows": assumed,
-        "assumed_appearance_share": assumed / len(result.requests) if result.requests else 0.0,
+        "assumed_appearance_share": assumed / len(trip_requests) if trip_requests else 0.0,
         "clipped_loading_ratio_rows": clipped,
     }
 
 
 def _convert_trip(
     trip: TripObservation,
-    routes: Mapping[tuple[str, str], RouteProfile],
+    route: RouteSequence | None,
     vessel_types: Mapping[int, str],
     appearance_map: Mapping[str, AppearanceRule],
-) -> ArcCostRequest | TripRejection:
-    rws_class = vessel_types.get(trip.vessel_type_id)
+) -> tuple[ArcCostRequest, ...] | TripRejection:
+    rws_class = trip.vessel_rws_class or (
+        vessel_types.get(trip.vessel_type_id) if trip.vessel_type_id is not None else None
+    )
     if rws_class is None:
         return TripRejection(
             source_row_id=trip.source_row_id,
             reason=TripRejectionReason.UNKNOWN_VESSEL_TYPE,
             detail=f"vessel_type_id={trip.vessel_type_id} is not in the vessel-type reference",
         )
-    route = routes.get((trip.origin_locode, trip.destination_locode))
     if route is None:
         return TripRejection(
             source_row_id=trip.source_row_id,
-            reason=TripRejectionReason.MISSING_ROUTE_PROFILE,
+            reason=TripRejectionReason.MISSING_ARC_SEQUENCE,
             detail=(
-                f"no route profile for {trip.origin_locode}->{trip.destination_locode}; "
-                "add the pair to the route-profile table"
+                f"no unique supplied route for {trip.origin_locode}->{trip.destination_locode}; "
+                "supply a connected sequence and an association for multiple alternatives"
             ),
         )
     try:
@@ -254,23 +282,35 @@ def _convert_trip(
         )
     cargo_t = trip.cargo_t if trip.cargo_t is not None else 0.0
     try:
-        return ArcCostRequest(
-            case_row_id=trip.source_row_id,
-            arc_id=f"{route.origin_locode}->{route.destination_locode}",
-            appearance=appearance,
-            vessel_rws_class=rws_class,
-            waterway_cemt_class=route.waterway_cemt_class,
-            loading_ratio=loading_ratio,
-            distance_km=route.distance_km,
-            realised_speed_km_per_h=route.realised_speed_km_per_h,
-            cargo_t=cargo_t,
-            is_loaded=cargo_t > 0 or trip.containers_teu > 0,
-            source_row_id=trip.source_row_id,
-            vessel_class_source=f"reference:vessel_type_id={trip.vessel_type_id}",
-            appearance_source=appearance_source,
-            route_source=route.source,
-            loading_ratio_source=loading_source,
-            notes=notes,
+        return tuple(
+            ArcCostRequest(
+                case_row_id=f"{trip.source_row_id}:arc:{sequence}",
+                route_id=route.route_id,
+                sequence=sequence,
+                route_arc_count=len(route.arcs),
+                arc_id=arc.arc_id,
+                from_node_id=arc.from_node_id,
+                to_node_id=arc.to_node_id,
+                appearance=appearance,
+                vessel_rws_class=rws_class,
+                waterway_cemt_class=arc.waterway_cemt_class,
+                loading_ratio=loading_ratio,
+                distance_km=arc.distance_km,
+                realised_speed_km_per_h=arc.realised_speed_km_per_h,
+                cargo_t=cargo_t,
+                is_loaded=cargo_t > 0 or (trip.containers_teu or 0) > 0,
+                source_row_id=trip.source_row_id,
+                vessel_class_source="observed:SK_CODE/sk_code"
+                if trip.vessel_rws_class
+                else f"explicit-crosswalk:vessel_type_id={trip.vessel_type_id}",
+                appearance_source=appearance_source,
+                route_source=f"{route.source};arc:{arc.source}",
+                loading_ratio_source=loading_source,
+                cargo_unit_source=trip.cargo_unit_source,
+                notes=(*trip.notes, *notes),
+                **{name: getattr(arc, name) for name in TIME_FIELDS},
+            )
+            for sequence, arc in enumerate(route.arcs)
         )
     except ValidationError as error:
         return TripRejection(

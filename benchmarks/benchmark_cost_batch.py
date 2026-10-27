@@ -16,7 +16,6 @@ from iww_route_assignment import (
     LoadingCategory,
     ScenarioCostParameters,
     TableFuelConsumptionProvider,
-    VesselProfile,
     calculate_arc_costs,
 )
 
@@ -29,7 +28,6 @@ def run(row_count: int) -> dict[str, float | int | str]:
                 "benchmark:M1:I",
                 "M1",
                 "I",
-                VesselProfile.GENERAL,
                 37.0,
                 50.0,
                 58.0,
@@ -37,9 +35,7 @@ def run(row_count: int) -> dict[str, float | int | str]:
             ),
         )
     )
-    fuel = provider.resolve(
-        "M1", "I", VesselProfile.GENERAL, loading_category=LoadingCategory.MEDIUM
-    )
+    fuel = provider.resolve("M1", "I", loading_category=LoadingCategory.MEDIUM)
     rates = CostRates(
         "Dry bulk",
         "M1",
