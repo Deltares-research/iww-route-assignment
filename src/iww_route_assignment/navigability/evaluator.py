@@ -1,8 +1,9 @@
 """Independent navigability evaluator.
 
-Navigability is a hard feasibility check. It never reads or produces monetary values. Routing
-combines both through :func:`restrict_choice_weights`, so no cost or penalty can make a blocked
-arc usable.
+It compares a vessel with physical limits and never reads or produces monetary values. Traffic
+assignment turns its findings into route-choice penalties, see
+:mod:`iww_route_assignment.assignment.penalties`. :func:`restrict_choice_weights` supports a
+strict analysis in which a blocked arc cannot be used at any cost.
 """
 
 from __future__ import annotations
