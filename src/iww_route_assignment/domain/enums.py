@@ -90,3 +90,39 @@ class NavigabilityStatus(StrEnum):
     NAVIGABLE = "navigable"
     UNDETERMINED = "undetermined"
     NOT_NAVIGABLE = "not_navigable"
+
+
+class PenaltyType(StrEnum):
+    """Reason a route-choice penalty was added to an arc for a vessel state."""
+
+    BEAM = "beam"
+    LENGTH = "length"
+    DRAUGHT = "draught"
+    AIR_DRAUGHT = "air_draught"
+    UNDETERMINED = "undetermined"
+    CEMT = "cemt"
+    SEA = "sea"
+
+
+class VoyageStatus(StrEnum):
+    """Outcome of assigning one voyage to the network."""
+
+    SUCCESS = "success"
+    NO_PATH = "no_path"
+    SNAP_FAIL = "snap_fail"
+    VESSEL_FAIL = "vessel_fail"
+    COST_FAIL = "cost_fail"
+
+
+class MissingCostPolicy(StrEnum):
+    """What to do when a voyage has no cost rate or fuel reference."""
+
+    REJECT = "reject"
+    FAIL = "fail"
+
+
+class DuplicateTripRule(StrEnum):
+    """How repeated trip identifiers in a source export are handled."""
+
+    FAIL = "fail"
+    EXCLUDE = "exclude"
