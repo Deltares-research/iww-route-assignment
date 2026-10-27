@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iww-route-assignment"
-version = "0.3.0"
+version = "0.4.0"
 description = "Auditable inland-waterway route assignment modelling"
 readme = "README.md"
 requires-python = ">=3.12,!=3.14.1"
@@ -48,17 +48,6 @@ Issues = "https://github.com/Deltares-research/iww-route-assignment/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/iww_route_assignment"]
 
-[tool.hatch.build]
-exclude = [
-    "/CLAUDE.md",
-    "/CLAUDE.local.md",
-    "/.claude",
-    "/.github/skills",
-    "/.idea",
-    "/data",
-    "/notebooks",
-]
-
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers"
 testpaths = ["tests"]
@@ -85,3 +74,7 @@ python_version = "3.12"
 strict = true
 packages = ["iww_route_assignment"]
 mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = ["geopandas.*", "networkx.*", "scipy.*", "shapely.*"]
+ignore_missing_imports = true
