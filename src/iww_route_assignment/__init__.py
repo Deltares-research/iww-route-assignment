@@ -1,6 +1,19 @@
 """Auditable inland-waterway route-assignment modelling."""
 
 from .application import CostedArc, CostedTrip, cost_trip_requests
+from .assignment import (
+    AssignmentNetwork,
+    AssignmentResult,
+    AssignmentSettings,
+    AssignmentTrips,
+    CostCoverageReport,
+    CostInputs,
+    NavigabilityPenalties,
+    NetworkEdge,
+    RoutePreferences,
+    VesselCatalogue,
+    assign_traffic,
+)
 from .costs import (
     FallbackFuelConsumptionProvider,
     FuelConsumptionProvider,
@@ -20,6 +33,7 @@ from .domain import (
     ArcTravelInput,
     Confidence,
     CostRates,
+    DuplicateTripRule,
     FuelConsumptionObservation,
     FuelProxyWeights,
     FuelResolutionMethod,
@@ -27,6 +41,8 @@ from .domain import (
     IvsFormat,
     LoadingAnchors,
     LoadingCategory,
+    MissingCostPolicy,
+    PenaltyType,
     ResolvedFuelRate,
     RouteCostMetric,
     RouteSequence,
@@ -39,6 +55,7 @@ from .domain import (
     TripRejectionReason,
     TripRoute,
     VesselReference,
+    VoyageStatus,
 )
 from .domain.enums import NavigabilityStatus, RestrictionType, StructureType
 from .domain.navigability import (
@@ -71,9 +88,23 @@ from .preparation import (
     summarise_trip_conversion,
     trips_to_arc_requests,
 )
-from .routing_costs import RoutePricing, RoutingCostConfig, VoyageCostModel
 
 __all__ = [
+    "AssignmentNetwork",
+    "AssignmentResult",
+    "AssignmentSettings",
+    "AssignmentTrips",
+    "CostCoverageReport",
+    "CostInputs",
+    "DuplicateTripRule",
+    "MissingCostPolicy",
+    "NavigabilityPenalties",
+    "NetworkEdge",
+    "PenaltyType",
+    "RoutePreferences",
+    "VesselCatalogue",
+    "VoyageStatus",
+    "assign_traffic",
     "ArcNavigability",
     "ArcRestriction",
     "NavigabilityFinding",
@@ -128,9 +159,6 @@ __all__ = [
     "ValidationError",
     "IvsFormat",
     "VesselReference",
-    "RoutePricing",
-    "RoutingCostConfig",
-    "VoyageCostModel",
     "build_route_index",
     "build_vessel_type_index",
     "calculate_arc_choice_time_h",
@@ -142,4 +170,4 @@ __all__ = [
     "trips_to_arc_requests",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

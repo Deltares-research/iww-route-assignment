@@ -10,12 +10,16 @@ from .classifications import (
 )
 from .enums import (
     Confidence,
+    DuplicateTripRule,
     FuelResolutionMethod,
     FuelResolutionPolicy,
     IvsFormat,
     LoadingCategory,
+    MissingCostPolicy,
+    PenaltyType,
     RouteCostMetric,
     TripRejectionReason,
+    VoyageStatus,
 )
 from .models import (
     AppearanceRule,
@@ -70,6 +74,10 @@ __all__ = [
     "LoadingCategory",
     "ResolvedFuelRate",
     "RouteCostMetric",
+    "DuplicateTripRule",
+    "MissingCostPolicy",
+    "PenaltyType",
+    "VoyageStatus",
     "RouteSequence",
     "ScenarioCostParameters",
     "TripCostBreakdown",
