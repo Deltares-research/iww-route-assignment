@@ -35,8 +35,6 @@ Every document in the repository is listed here. If a page is not in this table,
 | Schema templates | [`schemas/README.md`](../schemas/README.md) | What is each header-only CSV template for. |
 | Reference-data status | [`data/README.md`](../data/README.md) | Why is the fuel table absent and what replaces it. |
 
-The external IWW folder holds scripts, datasets and runs. Its guides for the cost function, the assignment and the navigability check are in `IWW/model/guides`. `IWW/model/README.md` indexes the local documents.
-
 [Back to contents](#contents)
 
 ## Find by task
@@ -44,7 +42,6 @@ The external IWW folder holds scripts, datasets and runs. Its guides for the cos
 | I want to | Start at |
 | --- | --- |
 | Run a first calculation | [Examples](examples.md#synthetic-repository-example) |
-| Run a cost estimation on real data | External `IWW\model\instructions\<yyyymmdd>_cost_function_run.md` |
 | Assign trips to the network | [Traffic assignment](assignment.md#running-it) |
 | Choose a route-search metric or penalty | [Assignment settings](assignment.md#settings) and [penalties](assignment.md#penalties) |
 | Understand a voyage status | [Voyage status](enumerations.md#voyage-status) |
