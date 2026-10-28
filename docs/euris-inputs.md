@@ -70,7 +70,7 @@ A lock linked to a section but without chamber data still adds passage time. It 
 - Every edge needs a valid `length_m`, and every node a geometry.
 - Structure files must have the columns listed in `STRUCTURE_FILES`. A missing file or column stops the load.
 - The report counts edges, nodes, edges without a code, edges with locks, limits by structure type and skipped values.
-- The number of connected parts is written to the run summary. Voyages between parts get `no_path`.
+- The number of connected parts is written to the run summary. Trips between parts get `no_path`.
 
 [Back to contents](#contents)
 

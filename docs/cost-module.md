@@ -80,7 +80,7 @@ Reported time and cost include physical delays. Choice time adds calibration and
 - `travel_cost_eur` (default): `choice_cost_eur`, with penalty hours priced at the hourly rate (`hourly_rate_eur_per_h`).
 - `travel_time`: choice time in hours, which needs no rate or fuel.
 
-Both metrics report the full cost of the chosen route. A voyage whose cost inputs cannot be resolved gets status `cost_fail` under either metric. Empty trips are routed and costed like loaded trips. They have loading ratio zero, so the light-loading fuel rate applies, and they carry no fixed cargo-handling cost. See [Traffic assignment](assignment.md).
+Both metrics report the full cost of the chosen route. A trip whose cost inputs cannot be resolved gets status `cost_fail` under either metric. Empty trips are routed and costed like loaded trips. They have loading ratio zero, so the light-loading fuel rate applies, and they carry no fixed cargo-handling cost. See [Traffic assignment](assignment.md).
 
 [Back to contents](#contents)
 

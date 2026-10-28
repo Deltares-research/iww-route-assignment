@@ -44,7 +44,7 @@ Every document in the repository is listed here. If a page is not in this table,
 | Run a first calculation | [Examples](examples.md#synthetic-repository-example) |
 | Assign trips to the network | [Traffic assignment](assignment.md#running-it) |
 | Choose a route-search metric or penalty | [Assignment settings](assignment.md#settings) and [penalties](assignment.md#penalties) |
-| Understand a voyage status | [Voyage status](enumerations.md#voyage-status) |
+| Understand a trip status | [Trip status](enumerations.md#trip-status) |
 | Set up a case of my own | [Case configuration](configuration.md) |
 | Understand a run option such as `fuel_policy` | [Enumerations](enumerations.md#fuel-resolution-policy) |
 | Fix a rejected input file | [Data contracts](data-contracts.md) and [schemas](../schemas/README.md) |

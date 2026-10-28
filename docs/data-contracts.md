@@ -116,13 +116,13 @@ Grouped by consumer:
 
 The nested fuel audit is never dropped or summarised away. `fuel_method` and `fuel_confidence` take the values in [Enumerations](enumerations.md#fuel-resolution-method); `fuel_source_row_ids`, `fuel_source_datasets`, `fuel_notes` and `fuel_proxy_distance_terms` are JSON encoded so a single CSV cell stays parsable.
 
-The external illustrative runner documents its request CSV in `runs/test_case_cost_function`. See [Case configuration](configuration.md) for the TOML that drives it.
+The external illustrative runner documents its request CSV in `runs/20260814_test_case_cost_function`. See [Case configuration](configuration.md) for the TOML that drives it.
 
 [Back to contents](#contents)
 
 ## Trip observations
 
-`TripObservation` is one observed origin-destination voyage from a trip register such as IVS. `load_ivs_trips_csv` and `ivs_trips_from_frame` map the export columns in `IVS_COLUMNS` onto it, and `trips_to_arc_requests` derives the arc-request fields.
+`TripObservation` is one observed origin-destination trip from a trip register such as IVS. `load_ivs_trips_csv` and `ivs_trips_from_frame` map the export columns in `IVS_COLUMNS` onto it, and `trips_to_arc_requests` derives the arc-request fields.
 
 | Export column | Field | Derivation |
 | --- | --- | --- |
@@ -196,7 +196,7 @@ Limits must be finite and greater than zero. Duplicate `(arc_id, structure_id)` 
 
 ## Assignment inputs and outputs
 
-Trips for assignment are read with `read_assignment_trips`, which uses the same validation as the extended IVS reader. It also needs two point columns, by default `Eerste_Geom` and `Laatste_Geom`, holding WKT in `points_crs`. A missing or unreadable point leaves that voyage without a point, which gives `snap_fail`. The segment `Overig` maps to `overig`, source `assumption:ivs-segment-overig-is-overig-v1`.
+Trips for assignment are read with `read_assignment_trips`, which uses the same validation as the extended IVS reader. It also needs two point columns, by default `Eerste_Geom` and `Laatste_Geom`, holding WKT in `points_crs`. A missing or unreadable point leaves that trip without a point, which gives `snap_fail`. The segment `Overig` maps to `overig`, source `assumption:ivs-segment-overig-is-overig-v1`.
 
 The network and its limits come from EuRIS, see [EuRIS inputs](euris-inputs.md). Output tables are described in [Traffic assignment](assignment.md#outputs).
 

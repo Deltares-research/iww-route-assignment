@@ -46,9 +46,9 @@ poetry run python run_cost_case.py my_case/case.toml
 
 Every TOML key, the four required input tables, the scenario assumptions and the three generated output files are documented in [Case configuration](configuration.md). Copy the header templates from [`schemas/`](../schemas/README.md) to start a new case.
 
-The synthetic case under `runs/test_case_cost_function` covers observed, interpolated and proxied fuel rates. It is not the Weurt case.
+The synthetic case under `runs/20260814_test_case_cost_function` covers observed, interpolated and proxied fuel rates. It is not the Weurt case.
 
-The IVS case under `runs/case_ivs_weekmonitor_2023` applies the module to a real trip register. Its README records coverage, every applied assumption and the plausibility check. It is an application case, not a verification.
+The IVS case under `runs/20260818_case_ivs_weekmonitor_2023` applies the module to a real trip register. Its README records coverage, every applied assumption and the plausibility check. It is an application case, not a verification.
 
 [Back to contents](#contents)
 

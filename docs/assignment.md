@@ -15,11 +15,11 @@
 
 ## In short
 
-- Each IVS trip becomes a voyage between two points on the network.
+- Each IVS trip becomes a trip between two points on the network.
 - The route search minimises the cost function's route-choice cost by default (`travel_cost_eur`). Time only (`travel_time`) is the alternative.
 - Physical limits and route preferences add penalty hours to the route-choice weight. They never enter reported time or cost.
-- Each chosen route is then priced again with the voyage's exact load. The fixed cargo-handling cost is added once per trip.
-- Every voyage gets a status. Failures carry a reason and are never dropped.
+- Each chosen route is then priced again with the trip's exact load. The fixed cargo-handling cost is added once per trip.
+- Every trip gets a status. Failures carry a reason and are never dropped.
 
 [Back to contents](#contents)
 
@@ -55,7 +55,7 @@ flowchart LR
 1. **Snap.** Each point goes to the nearest edge, then to the nearer node of that edge. Distances are measured in EPSG:3035.
 2. **Check.** The status becomes `snap_fail`, `vessel_fail` or `cost_fail` if something is missing. Checks run in that order and the first failure wins.
 3. **Group.** Trips, each one ship, with the same routing key share edge weights. For `travel_time` the key is the vessel class and whether it is loaded. For `travel_cost_eur` it also holds the appearance and the rounded loading ratio. One search from each origin serves the whole group. Each trip is still priced alone with its own exact load.
-4. **Search.** One Dijkstra search per routing key and origin node serves every voyage from that node. The network is undirected.
+4. **Search.** One Dijkstra search per routing key and origin node serves every trip from that node. The network is undirected.
 5. **Price.** The chosen route is priced with the cost function at the exact loading ratio. The fixed cost is added once.
 6. **Sum.** Trips, cargo, time, cost, fuel and penalties are summed per edge.
 
@@ -81,7 +81,7 @@ Terms used here:
 - **Loading ratio**: cargo divided by capacity. It sets fuel and, with the cargo, the fixed cost.
 - **Rounded load**: the loading ratio rounded by `routing_ratio_step`, for the search only.
 
-`routing_ratio_step` rounds the loading ratio used for the search, for example to multiples of 0.05. Voyages can then share a search. Reported cost always uses the exact ratio. A loaded trip never rounds to 0.
+`routing_ratio_step` rounds the loading ratio used for the search, for example to multiples of 0.05. Trips can then share a search. Reported cost always uses the exact ratio. A loaded trip never rounds to 0.
 
 [Back to contents](#contents)
 
@@ -129,6 +129,8 @@ Rules:
 ## Outputs
 
 `assign_traffic` returns an `AssignmentResult`. `io.write_assignment_outputs` writes it to a folder.
+
+Output names keep the older word voyage: `voyages.parquet` has one row per trip, `voyage_edges.parquet` one row per sailed edge of a trip, and `voyage_index` numbers the trips. In Python they are `result.trips` and `result.trip_edges`.
 
 | File | One row per | Main columns |
 | --- | --- | --- |

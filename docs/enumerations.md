@@ -17,7 +17,7 @@ Every value in this page is a closed set. Any other value raises `ValidationErro
 11. [Restriction type](#restriction-type)
 12. [Navigability status](#navigability-status)
 13. [Route cost metric](#route-cost-metric)
-14. [Voyage status](#voyage-status)
+14. [Trip status](#trip-status)
 15. [Penalty type](#penalty-type)
 16. [Assignment run options](#assignment-run-options)
 
@@ -261,7 +261,7 @@ Run options: `require_coverage` (default `true`) makes uncovered arcs `undetermi
 
 ## Route cost metric
 
-`RouteCostMetric`. Direction: input in `AssignmentSettings.metric`, output in `voyages.route_metric`.
+`RouteCostMetric`. Direction: input in `AssignmentSettings.metric`, output in `trips.route_metric`.
 
 | Value | Meaning |
 | --- | --- |
@@ -272,9 +272,9 @@ Both report the full cost of the chosen route.
 
 [Back to contents](#contents)
 
-## Voyage status
+## Trip status
 
-`VoyageStatus`. Direction: output in `voyages.status`. Checks run in this order and the first failure wins.
+`TripStatus`. Direction: output in `trips.status`. Checks run in this order and the first failure wins.
 
 | Value | Meaning |
 | --- | --- |
@@ -310,7 +310,7 @@ Penalty hours are set in `NavigabilityPenalties` and `RoutePreferences`. See [Tr
 
 | Value | Meaning |
 | --- | --- |
-| `reject` | Default. Voyages without cost rates get `cost_fail` and the run continues. |
+| `reject` | Default. Trips without cost rates get `cost_fail` and the run continues. |
 | `fail` | The run stops and lists the missing vessel class and appearance pairs. |
 
 `DuplicateTripRule` in `read_assignment_trips(duplicate_trip_ids=...)`:
