@@ -1,4 +1,4 @@
-"""Assign voyages to the network and price every route with the cost function.
+"""Assign trips to the network and price every route with the cost function.
 
 :func:`assign_traffic` works on objects in memory and reads no files. Use
 :mod:`iww_route_assignment.io.euris` and :mod:`iww_route_assignment.io.assignment` to load
@@ -23,10 +23,10 @@ from ..domain.navigability import ArcRestriction
 from ..navigability import RestrictionIndex, build_restriction_index
 from .network import AssignmentNetwork
 from .pricing import CostCoverageReport, CostInputs, EdgeTravel
-from .router import EDGE_COLUMNS, PENALTY_COLUMNS, RoutingContext, RoutingOutput, route_voyages
+from .router import EDGE_COLUMNS, PENALTY_COLUMNS, RoutingContext, RoutingOutput, route_trips
 from .settings import AssignmentSettings, NavigabilityPenalties, RoutePreferences
 from .snapping import NETWORK_CRS, build_snap_index
-from .voyages import VOYAGE_PENDING, AssignmentTrips, VesselCatalogue, prepare_voyages
+from .trips import TRIP_PENDING, AssignmentTrips, VesselCatalogue, prepare_trips
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,14 @@ PENALISED_KEY_COLUMNS = (
 class AssignmentResult:
     """Tables produced by :func:`assign_traffic`.
 
-    ``voyages`` has one row per valid trip. ``rejections`` lists source rows that were not
-    valid trips, with a reason. ``voyage_edges`` has one row per traversed edge of a
-    successful voyage. ``intensity`` sums traffic per used edge. ``penalised`` lists every
+    ``trips`` has one row per valid trip. ``rejections`` lists source rows that were not
+    valid trips, with a reason. ``trip_edges`` has one row per traversed edge of a
+    successful trip. ``intensity`` sums traffic per used edge. ``penalised`` lists every
     edge and limit that added a penalty, with the trips that met it.
     """
 
-    voyages: pd.DataFrame
-    voyage_edges: pd.DataFrame
+    trips: pd.DataFrame
+    trip_edges: pd.DataFrame
     intensity: gpd.GeoDataFrame
     penalised: gpd.GeoDataFrame
     coverage: CostCoverageReport
@@ -94,15 +94,15 @@ def edge_table(network: AssignmentNetwork) -> gpd.GeoDataFrame:
     )
 
 
-def _voyage_edges(
-    output: RoutingOutput, voyages: pd.DataFrame, network: AssignmentNetwork
+def _trip_edges(
+    output: RoutingOutput, trip_table: pd.DataFrame, network: AssignmentNetwork
 ) -> pd.DataFrame:
     columns = {
         name: (np.concatenate(parts) if parts else np.array([], dtype=object))
         for name, parts in output.edges.items()
     }
     frame = pd.DataFrame(columns, columns=list(EDGE_COLUMNS))
-    info = voyages.set_index("voyage_index")[
+    info = trip_table.set_index("voyage_index")[
         ["trip_id", "vessel_rws_class", "cargo_t", "is_loaded"]
     ]
     frame = frame.join(info, on="voyage_index")
@@ -116,9 +116,9 @@ def _voyage_edges(
     return frame[lead + rest].sort_values(["voyage_index", "seq"], ignore_index=True)
 
 
-def _intensity(voyage_edges: pd.DataFrame, edges: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def _intensity(trip_edges: pd.DataFrame, edges: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     summed = (
-        voyage_edges.assign(empty=~voyage_edges["is_loaded"].astype(bool))
+        trip_edges.assign(empty=~trip_edges["is_loaded"].astype(bool))
         .groupby("edge_index")
         .agg(
             trip_count=("voyage_index", "size"),
@@ -161,10 +161,10 @@ def assign_traffic(
     penalties: NavigabilityPenalties | None = None,
     preferences: RoutePreferences | None = None,
 ) -> AssignmentResult:
-    """Route every voyage and report its time, fuel and cost from the cost function.
+    """Route every trip and report its time, fuel and cost from the cost function.
 
     1. Snap origin and destination to the network and check vessel and cost inputs.
-    2. Group voyages by routing key and search once per key and origin node, minimising
+    2. Group trips by routing key and search once per key and origin node, minimising
        ``settings.metric``. Penalties from limits and preferences steer the search.
     3. Reprice each chosen route with the exact load. Fixed cost is added once per trip.
     4. Sum traffic, cost and penalties per edge.
@@ -180,12 +180,12 @@ def assign_traffic(
     if unknown_arcs:
         logger.warning("%d restriction arcs are not in the network", len(unknown_arcs))
 
-    prepared = prepare_voyages(
+    prepared = prepare_trips(
         trips, network, build_snap_index(network), catalogue, cost_inputs, settings
     )
     table = prepared.table
-    pending = table[table["status"] == VOYAGE_PENDING]
-    logger.info("Routing %d of %d voyages", len(pending), len(table))
+    pending = table[table["status"] == TRIP_PENDING]
+    logger.info("Routing %d of %d trips", len(pending), len(table))
     context = RoutingContext(
         network,
         edge_travel(network),
@@ -196,23 +196,23 @@ def assign_traffic(
         penalties,
         preferences,
     )
-    output = route_voyages(context, pending)
+    output = route_trips(context, pending)
 
-    routed = pd.DataFrame.from_records(output.voyages)
+    routed = pd.DataFrame.from_records(output.trips)
     if routed.empty:
         routed = pd.DataFrame(columns=["voyage_index", "status", "detail", "route_metric"])
-    voyages = table.drop(columns=["routing_key"]).set_index("voyage_index")
+    trip_table = table.drop(columns=["routing_key"]).set_index("voyage_index")
     routed = routed.set_index("voyage_index")
-    voyages.update(routed[["status", "detail"]])
-    voyages = voyages.join(routed.drop(columns=["status", "detail"]), how="left")
-    voyages["route_metric"] = settings.metric.value
-    voyages = voyages.reset_index()
+    trip_table.update(routed[["status", "detail"]])
+    trip_table = trip_table.join(routed.drop(columns=["status", "detail"]), how="left")
+    trip_table["route_metric"] = settings.metric.value
+    trip_table = trip_table.reset_index()
 
     edges = edge_table(network)
-    voyage_edges = _voyage_edges(output, voyages, network)
-    status_counts = voyages["status"].value_counts().sort_index()
+    trip_edges = _trip_edges(output, trip_table, network)
+    status_counts = trip_table["status"].value_counts().sort_index()
     summary = {
-        "voyages": len(voyages),
+        "trips": len(trip_table),
         "status_counts": {str(k): int(v) for k, v in status_counts.items()},
         "route_metric": settings.metric.value,
         "network_edges": network.edge_count,
@@ -226,9 +226,9 @@ def assign_traffic(
     }
     logger.info("Assignment finished: %s", summary["status_counts"])
     return AssignmentResult(
-        voyages,
-        voyage_edges,
-        _intensity(voyage_edges, edges),
+        trip_table,
+        trip_edges,
+        _intensity(trip_edges, edges),
         _penalised(output, edges),
         prepared.coverage,
         MappingProxyType(summary),

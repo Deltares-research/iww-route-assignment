@@ -139,6 +139,6 @@ class AssignmentNetwork:
         ]
 
     def component_count(self) -> int:
-        """Number of connected parts. Voyages between parts have no path."""
+        """Number of connected parts. Trips between parts have no path."""
         count, _ = connected_components(self.search_matrix(np.ones(self.edge_count)))
         return int(count)

@@ -19,11 +19,11 @@ def _non_negative(name: str, value: float) -> None:
 
 @dataclass(frozen=True, slots=True)
 class AssignmentSettings:
-    """How voyages are snapped, grouped, routed and costed.
+    """How trips are snapped, grouped, routed and costed.
 
     ``metric`` is what the route search minimises. ``travel_cost_eur`` uses the cost
     function, ``travel_time`` uses time only. Both report the full cost of the chosen route.
-    ``routing_ratio_step`` rounds the loading ratio used for the search, so voyages can
+    ``routing_ratio_step`` rounds the loading ratio used for the search, so trips can
     share one search. Reported costs always use the exact loading ratio.
     """
 

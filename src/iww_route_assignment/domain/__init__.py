@@ -19,7 +19,7 @@ from .enums import (
     PenaltyType,
     RouteCostMetric,
     TripRejectionReason,
-    VoyageStatus,
+    TripStatus,
 )
 from .models import (
     AppearanceRule,
@@ -77,7 +77,7 @@ __all__ = [
     "DuplicateTripRule",
     "MissingCostPolicy",
     "PenaltyType",
-    "VoyageStatus",
+    "TripStatus",
     "RouteSequence",
     "ScenarioCostParameters",
     "TripCostBreakdown",

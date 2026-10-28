@@ -54,8 +54,8 @@ from .domain import (
     TripRejection,
     TripRejectionReason,
     TripRoute,
+    TripStatus,
     VesselReference,
-    VoyageStatus,
 )
 from .domain.enums import NavigabilityStatus, RestrictionType, StructureType
 from .domain.navigability import (
@@ -103,7 +103,7 @@ __all__ = [
     "PenaltyType",
     "RoutePreferences",
     "VesselCatalogue",
-    "VoyageStatus",
+    "TripStatus",
     "assign_traffic",
     "ArcNavigability",
     "ArcRestriction",

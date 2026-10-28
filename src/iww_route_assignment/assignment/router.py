@@ -1,8 +1,8 @@
-"""Shortest-path search per routing key and origin, then exact repricing per voyage.
+"""Shortest-path search per routing key and origin, then exact repricing per trip.
 
-Voyages that share a routing key share edge weights. For the time metric the key is the
+Trips that share a routing key share edge weights. For the time metric the key is the
 vessel class and loading state. For the cost metric it also holds the appearance and the
-rounded loading ratio. One search from each origin node serves every voyage from it.
+rounded loading ratio. One search from each origin node serves every trip from it.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import numpy.typing as npt
 import pandas as pd
 from scipy.sparse.csgraph import dijkstra
 
-from ..domain.enums import Confidence, PenaltyType, RouteCostMetric, VoyageStatus
+from ..domain.enums import Confidence, PenaltyType, RouteCostMetric, TripStatus
 from ..domain.models import ResolvedFuelRate, TripCostInput
 from ..exceptions import IWWRouteAssignmentError
 from ..navigability import RestrictionIndex
@@ -24,7 +24,7 @@ from .network import AssignmentNetwork
 from .penalties import PenaltyProfile, penalty_profile
 from .pricing import CostInputs, EdgeTravel, FuelRates, RoutePrice, price_route, search_weights
 from .settings import AssignmentSettings, NavigabilityPenalties, RoutePreferences
-from .voyages import VesselCatalogue
+from .trips import VesselCatalogue
 
 CONFIDENCE_ORDER = (Confidence.HIGH, Confidence.MEDIUM, Confidence.LOW, Confidence.FALLBACK)
 PENALTY_COLUMNS = tuple(f"penalty_{kind.value}_h" for kind in PenaltyType)
@@ -62,16 +62,16 @@ class RoutingContext:
 
 @dataclass(slots=True)
 class RoutingOutput:
-    """Rows produced by routing a set of voyages."""
+    """Rows produced by routing a set of trips."""
 
-    voyages: list[dict[str, Any]] = field(default_factory=list)
+    trips: list[dict[str, Any]] = field(default_factory=list)
     edges: dict[str, list[npt.NDArray[Any]]] = field(
         default_factory=lambda: {name: [] for name in EDGE_COLUMNS}
     )
     penalised: dict[tuple[Any, ...], list[Any]] = field(default_factory=dict)
 
     def extend(self, other: RoutingOutput) -> None:
-        self.voyages.extend(other.voyages)
+        self.trips.extend(other.trips)
         for name in EDGE_COLUMNS:
             self.edges[name].extend(other.edges[name])
         for key, (trips, cargo, classes) in other.penalised.items():
@@ -157,7 +157,7 @@ def _searches(
 
 def _record_edges(
     output: RoutingOutput,
-    voyage_index: int,
+    trip_index: int,
     edges: npt.NDArray[np.int64],
     nodes: list[int],
     profile: PenaltyProfile,
@@ -165,7 +165,7 @@ def _record_edges(
 ) -> None:
     count = len(edges)
     columns = output.edges
-    columns["voyage_index"].append(np.full(count, voyage_index, dtype=np.int64))
+    columns["voyage_index"].append(np.full(count, trip_index, dtype=np.int64))
     columns["seq"].append(np.arange(count, dtype=np.int64))
     columns["edge_index"].append(edges)
     columns["from_node"].append(np.asarray(nodes[:-1], dtype=np.int64))
@@ -208,7 +208,7 @@ def _record_penalties(
 
 
 def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) -> RoutingOutput:
-    """Route every voyage that shares one routing key."""
+    """Route every trip that shares one routing key."""
     output = RoutingOutput()
     metric = context.settings.metric
     first = rows.iloc[0]
@@ -231,11 +231,11 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
         else:
             weights = search_weights(metric, context.travel, profile.total_h)
     except IWWRouteAssignmentError as error:
-        for voyage_index in rows["voyage_index"].tolist():
-            output.voyages.append(
+        for trip_index in rows["voyage_index"].tolist():
+            output.trips.append(
                 {
-                    "voyage_index": voyage_index,
-                    "status": VoyageStatus.COST_FAIL.value,
+                    "voyage_index": trip_index,
+                    "status": TripStatus.COST_FAIL.value,
                     "detail": f"route search weights: {error}",
                 }
                 | base
@@ -248,8 +248,8 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
             record = {"voyage_index": row.voyage_index} | base
             destination = int(row.destination_node)
             if not np.isfinite(distances[destination]):
-                output.voyages.append(
-                    record | {"status": VoyageStatus.NO_PATH.value, "detail": "no path in network"}
+                output.trips.append(
+                    record | {"status": TripStatus.NO_PATH.value, "detail": "no path in network"}
                 )
                 continue
             nodes = _paths(predecessors, int(origin), destination)
@@ -265,15 +265,15 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
                     TripCostInput(cargo_t=float(row.cargo_t), is_loaded=bool(row.is_loaded)),
                 )
             except IWWRouteAssignmentError as error:
-                output.voyages.append(
-                    record | {"status": VoyageStatus.COST_FAIL.value, "detail": str(error)}
+                output.trips.append(
+                    record | {"status": TripStatus.COST_FAIL.value, "detail": str(error)}
                 )
                 continue
             _record_edges(output, int(row.voyage_index), edges, nodes, profile, price)
-            output.voyages.append(
+            output.trips.append(
                 record
                 | {
-                    "status": VoyageStatus.SUCCESS.value,
+                    "status": TripStatus.SUCCESS.value,
                     "detail": "",
                     "n_edges": len(edges),
                     "distance_km": float(context.travel.distance_km[edges].sum()),
@@ -314,8 +314,8 @@ def _route_task(groups: list[pd.DataFrame]) -> RoutingOutput:
     return output
 
 
-def route_voyages(context: RoutingContext, pending: pd.DataFrame) -> RoutingOutput:
-    """Route pending voyages, in worker processes when ``n_workers > 1``.
+def route_trips(context: RoutingContext, pending: pd.DataFrame) -> RoutingOutput:
+    """Route pending trips, in worker processes when ``n_workers > 1``.
 
     Groups are processed in sorted routing-key order, so results do not depend on input
     order or on the number of workers.

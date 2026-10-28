@@ -104,8 +104,8 @@ class PenaltyType(StrEnum):
     SEA = "sea"
 
 
-class VoyageStatus(StrEnum):
-    """Outcome of assigning one voyage to the network."""
+class TripStatus(StrEnum):
+    """Outcome of assigning one trip to the network."""
 
     SUCCESS = "success"
     NO_PATH = "no_path"
@@ -115,7 +115,7 @@ class VoyageStatus(StrEnum):
 
 
 class MissingCostPolicy(StrEnum):
-    """What to do when a voyage has no cost rate or fuel reference."""
+    """What to do when a trip has no cost rate or fuel reference."""
 
     REJECT = "reject"
     FAIL = "fail"

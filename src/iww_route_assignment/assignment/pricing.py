@@ -34,7 +34,7 @@ from ..exceptions import ValidationError
 
 @dataclass(frozen=True, slots=True, eq=False)
 class CostInputs:
-    """Cost rates, fuel provider and scenario shared by every voyage."""
+    """Cost rates, fuel provider and scenario shared by every trip."""
 
     rates: tuple[CostRates, ...]
     fuel_provider: FuelConsumptionProvider
@@ -169,7 +169,7 @@ def search_weights(
 
 @dataclass(frozen=True, slots=True, eq=False)
 class RoutePrice:
-    """Reported and choice cost of one voyage along its chosen route."""
+    """Reported and choice cost of one trip along its chosen route."""
 
     arcs: ArcCostArrays
     fuels: tuple[ResolvedFuelRate, ...]

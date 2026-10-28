@@ -42,8 +42,8 @@ TRIP_ID_COLUMNS = {
 }
 
 OUTPUT_FILES = {
-    "voyages": "voyages.parquet",
-    "voyage_edges": "voyage_edges.parquet",
+    "trips": "voyages.parquet",
+    "trip_edges": "voyage_edges.parquet",
     "intensity": "intensity.geoparquet",
     "gpkg": "assignment.gpkg",
     "rejections": "trip_rejections.csv",
@@ -88,7 +88,7 @@ def read_assignment_trips(
     Trips are validated by :func:`read_ivs_frame`, so units and identifiers follow the
     cost case. ``duplicate_trip_ids="exclude"`` removes every row of a repeated trip id;
     no row is chosen over another. Point columns hold WKT in ``settings.points_crs``.
-    A missing or unreadable point leaves the voyage without that point.
+    A missing or unreadable point leaves the trip without that point.
     """
     settings = settings or AssignmentSettings()
     layout = IvsFormat(format)
@@ -151,7 +151,7 @@ def write_assignment_outputs(
     *,
     metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Path]:
-    """Write voyages, rejected rows, voyage edges, intensity, penalised edges and a summary.
+    """Write trips, rejected rows, trip edges, intensity, penalised edges and a summary.
 
     ``assignment.gpkg`` holds the layers ``intensity`` and ``penalised_edges`` for GIS.
     ``summary.json`` holds status counts, coverage gaps and ``metadata``.
@@ -159,8 +159,8 @@ def write_assignment_outputs(
     folder = Path(directory)
     folder.mkdir(parents=True, exist_ok=True)
     paths = {name: folder / file for name, file in OUTPUT_FILES.items()}
-    result.voyages.to_parquet(paths["voyages"], index=False)
-    result.voyage_edges.to_parquet(paths["voyage_edges"], index=False)
+    result.trips.to_parquet(paths["trips"], index=False)
+    result.trip_edges.to_parquet(paths["trip_edges"], index=False)
     result.intensity.to_parquet(paths["intensity"], index=False)
     trip_rejections_to_frame(result.rejections).to_csv(paths["rejections"], index=False)
     paths["gpkg"].unlink(missing_ok=True)
@@ -170,7 +170,7 @@ def write_assignment_outputs(
     summary = dict(result.summary) | {"metadata": to_record(metadata or {})}
     paths["summary"].write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     if result.intensity.empty:
-        logger.warning("No voyage was routed; intensity is empty")
+        logger.warning("No trip was routed; intensity is empty")
     return paths
 
 

@@ -1,4 +1,4 @@
-"""Traffic assignment: route voyages over a network and price them with the cost function."""
+"""Traffic assignment: route trips over a network and price them with the cost function."""
 
 from .network import MIN_SEARCH_WEIGHT, AssignmentNetwork, NetworkEdge
 from .penalties import PenaltyDetail, PenaltyProfile, is_flat_beam_structure, penalty_profile
@@ -21,7 +21,7 @@ from .settings import (
     RoutePreferences,
 )
 from .snapping import SNAP_CRS, EdgeSnapIndex, SnapResult, build_snap_index, snap_points
-from .voyages import AssignmentTrips, PreparedVoyages, VesselCatalogue, prepare_voyages
+from .trips import AssignmentTrips, PreparedTrips, VesselCatalogue, prepare_trips
 
 __all__ = [
     "DEFAULT_SEA_WATER_NAMES",
@@ -40,7 +40,7 @@ __all__ = [
     "NetworkEdge",
     "PenaltyDetail",
     "PenaltyProfile",
-    "PreparedVoyages",
+    "PreparedTrips",
     "RoutePreferences",
     "RoutePrice",
     "SnapResult",
@@ -52,7 +52,7 @@ __all__ = [
     "edge_travel",
     "is_flat_beam_structure",
     "penalty_profile",
-    "prepare_voyages",
+    "prepare_trips",
     "price_route",
     "routing_loading_ratio",
     "search_weights",

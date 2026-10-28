@@ -1,4 +1,4 @@
-"""Turn validated trips into voyages ready for routing: vessel, cost class, snapped points."""
+"""Turn validated trips into trips ready for routing: vessel, cost class, snapped points."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from ..domain.classifications import normalise_rws_class
-from ..domain.enums import MissingCostPolicy, RouteCostMetric, VoyageStatus
+from ..domain.enums import MissingCostPolicy, RouteCostMetric, TripStatus
 from ..domain.models import TripObservation, TripRejection, VesselReference
 from ..domain.navigability import NavigabilityVessel
 from ..exceptions import ValidationError
@@ -20,7 +20,7 @@ from .pricing import CostCoverageReport, CostInputs, check_cost_coverage, routin
 from .settings import AssignmentSettings
 from .snapping import EdgeSnapIndex, snap_points
 
-VOYAGE_PENDING = "pending"
+TRIP_PENDING = "pending"
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -100,8 +100,8 @@ class VesselCatalogue:
 
 
 @dataclass(frozen=True, slots=True, eq=False)
-class PreparedVoyages:
-    """One row per trip, with status ``pending`` for voyages that can be routed."""
+class PreparedTrips:
+    """One row per trip, with status ``pending`` for trips that can be routed."""
 
     table: pd.DataFrame
     coverage: CostCoverageReport
@@ -127,27 +127,27 @@ def _cost_class(
 
 
 def _set_status(
-    table: pd.DataFrame, rows: pd.Series, status: VoyageStatus, detail: str | pd.Series
+    table: pd.DataFrame, rows: pd.Series, status: TripStatus, detail: str | pd.Series
 ) -> None:
     """Set a failure status on rows that are still pending; earlier failures win."""
-    mask = (rows & (table["status"] == VOYAGE_PENDING)).to_numpy(dtype=bool)
+    mask = (rows & (table["status"] == TRIP_PENDING)).to_numpy(dtype=bool)
     table.loc[mask, "status"] = status.value
     values = detail if isinstance(detail, str) else detail.to_numpy(dtype=object)[mask]
     table.loc[mask, "detail"] = values
 
 
-def prepare_voyages(
+def prepare_trips(
     trips: AssignmentTrips,
     network: AssignmentNetwork,
     snap_index: EdgeSnapIndex,
     catalogue: VesselCatalogue,
     cost_inputs: CostInputs,
     settings: AssignmentSettings,
-) -> PreparedVoyages:
-    """Snap points, resolve vessel and cost class, and set a status per voyage.
+) -> PreparedTrips:
+    """Snap points, resolve vessel and cost class, and set a status per trip.
 
     Checks run in this order and the first failure sets the status: snapping, vessel
-    class, then cost inputs. Voyages that pass every check are ``pending``.
+    class, then cost inputs. Trips that pass every check are ``pending``.
     """
     records = []
     for index, trip in enumerate(trips.trips):
@@ -169,7 +169,7 @@ def prepare_voyages(
             }
         )
     table = pd.DataFrame.from_records(records)
-    table["status"] = VOYAGE_PENDING
+    table["status"] = TRIP_PENDING
     table["detail"] = ""
 
     for prefix, points in (("origin", trips.origins), ("destination", trips.destinations)):
@@ -179,17 +179,17 @@ def prepare_voyages(
         table[f"{prefix}_snap_m"] = snap.edge_distance_m
         table[f"{prefix}_node_distance_m"] = snap.node_distance_m
     no_point = (table["origin_node"] < 0) | (table["destination_node"] < 0)
-    _set_status(table, no_point, VoyageStatus.SNAP_FAIL, "missing origin or destination point")
+    _set_status(table, no_point, TripStatus.SNAP_FAIL, "missing origin or destination point")
     if settings.max_snap_distance_m is not None:
         too_far = (table["origin_snap_m"] > settings.max_snap_distance_m) | (
             table["destination_snap_m"] > settings.max_snap_distance_m
         )
         detail = f"point further than {settings.max_snap_distance_m} m from the network"
-        _set_status(table, too_far, VoyageStatus.SNAP_FAIL, detail)
+        _set_status(table, too_far, TripStatus.SNAP_FAIL, detail)
 
     unknown = table["vessel_rws_class"].isna()
     unknown_detail = "no vessel reference for class " + table["source_vessel_class"].astype(str)
-    _set_status(table, unknown, VoyageStatus.VESSEL_FAIL, unknown_detail)
+    _set_status(table, unknown, TripStatus.VESSEL_FAIL, unknown_detail)
 
     known = table["vessel_rws_class"].notna() & (table["appearance"] != "")
     coverage = check_cost_coverage(
@@ -216,8 +216,8 @@ def prepare_voyages(
     rate_detail = (
         "no cost rates for " + table["vessel_rws_class"].astype(str) + "/" + table["appearance"]
     )
-    _set_status(table, table["cost_error"] != "", VoyageStatus.COST_FAIL, table["cost_error"])
-    _set_status(table, no_rates, VoyageStatus.COST_FAIL, rate_detail)
+    _set_status(table, table["cost_error"] != "", TripStatus.COST_FAIL, table["cost_error"])
+    _set_status(table, no_rates, TripStatus.COST_FAIL, rate_detail)
 
     table["routing_loading_ratio"] = [
         routing_loading_ratio(ratio, settings.routing_ratio_step) if ratio == ratio else np.nan
@@ -226,8 +226,8 @@ def prepare_voyages(
     key_columns = ["vessel_rws_class", "is_loaded"]
     if settings.metric is RouteCostMetric.TRAVEL_COST_EUR:
         key_columns += ["appearance", "routing_loading_ratio"]
-    pending = table["status"] == VOYAGE_PENDING
+    pending = table["status"] == TRIP_PENDING
     keys = table.loc[pending, key_columns].astype(str).agg("|".join, axis=1)
     table["routing_key"] = ""
     table.loc[pending, "routing_key"] = keys
-    return PreparedVoyages(table.drop(columns=["cost_error"]), coverage)
+    return PreparedTrips(table.drop(columns=["cost_error"]), coverage)

@@ -35,7 +35,7 @@ EMPTY_TRIP_APPEARANCE = "overig"
 """Appearance used for a trip that is recorded as empty and carries no cargo code.
 
 An empty vessel has no cargo, so no cargo class can be observed. The residual
-class supplies the cost rates for the voyage. The rule is an assumption and is
+class supplies the cost rates for the trip. The rule is an assumption and is
 reported as one.
 """
 
