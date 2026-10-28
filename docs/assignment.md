@@ -143,6 +143,8 @@ Output names keep the older word voyage: `voyages.parquet` has one row per trip,
 
 `total_cost_eur` equals `choice_total_cost_eur` and includes penalties. Use `reported_total_cost_eur` for the cost a vessel actually incurs.
 
+**Time period.** The assignment does not use time. Every trip in the input file is routed once, whatever its date, and the outputs add up all of them. A run therefore covers exactly the period of its input file. To assign one period, filter the input rows first, for example on `Eerste_Tijdstip`, the time at the first counting point. `Begintijd_evenement` is not a start time: in the 2026 register it equals the last counting-point time in 98.1 % of rows.
+
 Trips with `vessel_fail`, `cost_fail` or `snap_fail` have no route. They are in `voyages.parquet` with a reason but absent from `voyage_edges.parquet` and the intensity tables, so intensity counts routed trips only.
 
 [Back to contents](#contents)
@@ -198,6 +200,7 @@ The real-data run script lives in the external IWW scripts folder. Guard it with
 - A penalised route is not proof that a vessel sailed through a too-small structure. Penalties steer route choice only.
 - Routes are between counting points by default, not between ports. Distances are then shorter than full trips.
 - Reported time has no waiting, congestion or calibration. It is not an observed travel time.
+- Intensity is not a yearly or daily figure. It counts every trip in the input file, so divide by the number of days the file covers.
 - A rounded search load can choose a slightly different route than the exact load would. Reported cost is exact for the chosen route.
 
 [Back to contents](#contents)
