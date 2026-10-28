@@ -106,9 +106,9 @@ def _trips(*cargo_t: float) -> AssignmentTrips:
     )
 
 
-def _route(result: Any, voyage_index: int = 0) -> str:
-    edges = result.voyage_edges
-    return "-".join(["A", *edges.loc[edges["voyage_index"] == voyage_index, "to_node"]])
+def _route(result: Any, trip_index: int = 0) -> str:
+    edges = result.trip_edges
+    return "-".join(["A", *edges.loc[edges["voyage_index"] == trip_index, "to_node"]])
 
 
 def metric_choice_actual() -> dict[str, Any]:
@@ -123,18 +123,18 @@ def metric_choice_actual() -> dict[str, Any]:
     cost = assign_traffic(trips, NETWORK, COST_INPUTS, CATALOGUE)
     return {
         "time_route": _route(time),
-        "time_route_weight_h": time.voyages.loc[0, "route_weight"],
+        "time_route_weight_h": time.trips.loc[0, "route_weight"],
         "cost_route": _route(cost),
-        "cost_route_weight_eur": cost.voyages.loc[0, "route_weight"],
+        "cost_route_weight_eur": cost.trips.loc[0, "route_weight"],
     }
 
 
 def reported_cost_actual() -> dict[str, Any]:
-    voyage = assign_traffic(_trips(175.0), NETWORK, COST_INPUTS, CATALOGUE).voyages.iloc[0]
+    trip_row = assign_traffic(_trips(175.0), NETWORK, COST_INPUTS, CATALOGUE).trips.iloc[0]
     return {
-        "fuel_l": voyage["fuel_l"],
-        "fixed_cost_eur": voyage["fixed_cost_eur"],
-        "reported_total_cost_eur": voyage["reported_total_cost_eur"],
+        "fuel_l": trip_row["fuel_l"],
+        "fixed_cost_eur": trip_row["fixed_cost_eur"],
+        "reported_total_cost_eur": trip_row["reported_total_cost_eur"],
     }
 
 
@@ -143,31 +143,31 @@ def penalty_actual() -> dict[str, Any]:
     closed = ArcRestriction(
         "B|D", "NLLOCK", StructureType.LOCK, "verification-case", max_beam_m=4.0
     )
-    voyage = assign_traffic(
+    trip_row = assign_traffic(
         _trips(0.0),
         NETWORK,
         COST_INPUTS,
         CATALOGUE,
         [lock, closed],
         settings=AssignmentSettings(metric=RouteCostMetric.TRAVEL_TIME),
-    ).voyages.iloc[0]
+    ).trips.iloc[0]
     return {
-        "penalty_total_h": voyage["penalty_total_h"],
-        "choice_time_h": voyage["choice_time_h"],
-        "reported_time_h": voyage["reported_time_h"],
+        "penalty_total_h": trip_row["penalty_total_h"],
+        "choice_time_h": trip_row["choice_time_h"],
+        "reported_time_h": trip_row["reported_time_h"],
     }
 
 
 def rounded_load_actual() -> dict[str, Any]:
-    voyages = assign_traffic(
+    trip_table = assign_traffic(
         _trips(170.0),
         NETWORK,
         COST_INPUTS,
         CATALOGUE,
         settings=AssignmentSettings(routing_ratio_step=0.5),
-    ).voyages
+    ).trips
     return {
-        "routing_loading_ratio": voyages.loc[0, "routing_loading_ratio"],
-        "fuel_l": voyages.loc[0, "fuel_l"],
-        "reported_total_cost_eur": voyages.loc[0, "reported_total_cost_eur"],
+        "routing_loading_ratio": trip_table.loc[0, "routing_loading_ratio"],
+        "fuel_l": trip_table.loc[0, "fuel_l"],
+        "reported_total_cost_eur": trip_table.loc[0, "reported_total_cost_eur"],
     }

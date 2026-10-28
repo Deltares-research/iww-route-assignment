@@ -264,8 +264,8 @@ def test_write_outputs(tmp_path, network, cost_inputs, catalogue) -> None:
         settings=AssignmentSettings(metric="travel_time"),
     )
     paths = write_assignment_outputs(result, tmp_path, metadata={"settings": AssignmentSettings()})
-    assert pd.read_parquet(paths["voyages"])["status"].tolist() == ["success", "vessel_fail"]
-    assert len(pd.read_parquet(paths["voyage_edges"])) == 2
+    assert pd.read_parquet(paths["trips"])["status"].tolist() == ["success", "vessel_fail"]
+    assert len(pd.read_parquet(paths["trip_edges"])) == 2
     summary = json.loads(paths["summary"].read_text(encoding="utf-8"))
     assert summary["missing_vessel_classes"] == ["B04"]
     assert summary["metadata"]["settings"]["metric"] == "travel_cost_eur"

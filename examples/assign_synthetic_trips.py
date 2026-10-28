@@ -171,8 +171,8 @@ def main() -> None:
         settings=AssignmentSettings(metric=METRIC, points_crs="EPSG:4326"),
         penalties=NavigabilityPenalties(beam_h=BEAM_PENALTY_H),
     )
-    routes = result.voyage_edges.groupby("trip_id")["to_node"].agg(lambda s: "A-" + "-".join(s))
-    table = result.voyages.set_index("trip_id")[
+    routes = result.trip_edges.groupby("trip_id")["to_node"].agg(lambda s: "A-" + "-".join(s))
+    table = result.trips.set_index("trip_id")[
         [
             "status",
             "distance_km",
