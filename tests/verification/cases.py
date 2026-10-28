@@ -355,3 +355,71 @@ CASES: tuple[VerificationCase, ...] = (
         compute=_batch_equivalence_actual,
     ),
 )
+
+
+def _assignment_cases() -> tuple[VerificationCase, ...]:
+    from . import assignment_cases as a
+
+    return (
+        VerificationCase(
+            case_id="V-ASSIGN-001",
+            requirement="Route search minimises the chosen metric",
+            description="Time picks the faster route, cost picks the cheaper route.",
+            hand_calculation=(
+                "time: A-B-D 2.0 h, A-C-D 1.5 h, so A-C-D. "
+                "cost, empty M1 at 40 l/h: A-B-D 10 x 20 + 30 x 2 + 40 x 2 x 2 = 420; "
+                "A-C-D 10 x 30 + 30 x 1.5 + 40 x 1.5 x 2 = 465, so A-B-D at 420"
+            ),
+            expected={
+                "time_route": "A-C-D",
+                "time_route_weight_h": 1.5,
+                "cost_route": "A-B-D",
+                "cost_route_weight_eur": 420.0,
+            },
+            compute=a.metric_choice_actual,
+        ),
+        VerificationCase(
+            case_id="V-ASSIGN-002",
+            requirement="Reported route cost comes from the cost function, fixed cost once",
+            description="A half-loaded trip on A-B-D, priced with its exact load.",
+            hand_calculation=(
+                "fuel 60 l/h x 2 h = 120 l; arcs 10 x 20 + 30 x 2 + 120 x 2 = 500; "
+                "fixed 2 x 175 + 3 x 175 + 7 x 2 = 889; total 500 + 889 = 1389"
+            ),
+            expected={"fuel_l": 120.0, "fixed_cost_eur": 889.0, "reported_total_cost_eur": 1389.0},
+            compute=a.reported_cost_actual,
+        ),
+        VerificationCase(
+            case_id="V-ASSIGN-003",
+            requirement="Penalties steer route choice and never enter reported values",
+            description=(
+                "A Dutch lock 4.0 m wide on B-D and a German lock 4.55 m wide on C-D. Beam 5.05 m."
+            ),
+            hand_calculation=(
+                "B-D: Dutch, flat 1000 h, so A-B-D choice 2 + 1000 h. "
+                "C-D: abroad, 5 h x (5.05 - 4.55) = 2.5 h, so A-C-D choice 1.5 + 2.5 = 4.0 h; "
+                "reported time stays 1.5 h"
+            ),
+            expected={"penalty_total_h": 2.5, "choice_time_h": 4.0, "reported_time_h": 1.5},
+            compute=a.penalty_actual,
+        ),
+        VerificationCase(
+            case_id="V-ASSIGN-004",
+            requirement="A rounded search load leaves reported cost exact",
+            description="170 t of 350 t searches at ratio 0.5 and is priced at 170/350.",
+            hand_calculation=(
+                "ratio 170/350 = 0.485714; fuel 40 + 20 x 0.485714 / 0.5 = 59.428571 l/h; "
+                "fuel 2 h x 59.428571 = 118.857143 l; arcs 200 + 60 + 237.714286 = 497.714286; "
+                "fixed 2 x 170 + 3 x 170 + 7 x 2 = 864; total 1361.714286"
+            ),
+            expected={
+                "routing_loading_ratio": 0.5,
+                "fuel_l": 2 * (40 + 20 * (170 / 350) / 0.5),
+                "reported_total_cost_eur": 200 + 60 + 2 * 2 * (40 + 20 * (170 / 350) / 0.5) + 864,
+            },
+            compute=a.rounded_load_actual,
+        ),
+    )
+
+
+CASES = CASES + _assignment_cases()

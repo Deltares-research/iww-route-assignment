@@ -365,7 +365,7 @@ class TripCostBreakdown:
 
 @dataclass(frozen=True, slots=True)
 class TripObservation:
-    """One observed origin-destination voyage from a trip register such as IVS."""
+    """One observed origin-destination trip from a trip register such as IVS."""
 
     source_row_id: str
     origin_locode: str

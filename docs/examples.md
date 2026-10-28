@@ -5,8 +5,10 @@
 1. [Synthetic repository example](#synthetic-repository-example)
 2. [Trip preparation example](#trip-preparation-example)
 3. [Illustrative external case](#illustrative-external-case)
-4. [Verification suite](#verification-suite)
-5. [Benchmark](#benchmark)
+4. [Navigability example](#navigability-example)
+5. [Assignment example](#assignment-example)
+6. [Verification suite](#verification-suite)
+7. [Benchmark](#benchmark)
 
 ## Synthetic repository example
 
@@ -44,9 +46,29 @@ poetry run python run_cost_case.py my_case/case.toml
 
 Every TOML key, the four required input tables, the scenario assumptions and the three generated output files are documented in [Case configuration](configuration.md). Copy the header templates from [`schemas/`](../schemas/README.md) to start a new case.
 
-The synthetic case under `runs/test_case_cost_function` covers observed, interpolated and proxied fuel rates. It is not the Weurt case.
+The synthetic case under `runs/20260814_test_case_cost_function` covers observed, interpolated and proxied fuel rates. It is not the Weurt case.
 
-The IVS case under `runs/case_ivs_weekmonitor_2023` applies the module to a real trip register. Its README records coverage, every applied assumption and the plausibility check. It is an application case, not a verification.
+The IVS case under `runs/20260818_case_ivs_weekmonitor_2023` applies the module to a real trip register. Its README records coverage, every applied assumption and the plausibility check. It is an application case, not a verification.
+
+[Back to contents](#contents)
+
+## Navigability example
+
+```powershell
+poetry run python examples/check_route_navigability.py
+```
+
+The example evaluates the two synthetic routes for three vessel states and prints one summary row per route and vessel, the findings and choice weights in which a blocked arc is infinite. Expected outcomes are hand-checked in `tests/test_navigability.py`. See [Navigability](navigability.md).
+
+[Back to contents](#contents)
+
+## Assignment example
+
+```powershell
+poetry run python examples/assign_synthetic_trips.py
+```
+
+Three trips sail from A to D on a four-node network built in code. The settings at the top of the file choose the metric, the lock width and the beam penalty. By cost the trips take A-B-D. By time, or with a lock narrower than the vessel, they take A-C-D. All tables are made up and labelled as such. `tests/assignment/test_example.py` keeps the example working. See [Traffic assignment](assignment.md).
 
 [Back to contents](#contents)
 

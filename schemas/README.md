@@ -6,7 +6,8 @@
 2. [File index](#file-index)
 3. [Cost-run schemas](#cost-run-schemas)
 4. [Trip-preparation schemas](#trip-preparation-schemas)
-5. [Rules that apply to every file](#rules-that-apply-to-every-file)
+5. [Navigability schemas](#navigability-schemas)
+6. [Rules that apply to every file](#rules-that-apply-to-every-file)
 
 ## Role of this folder
 
@@ -38,6 +39,8 @@ The templates are not validated fixtures. Synthetic, licence-safe test data live
 | `trip_routes.csv` | `load_trip_routes_csv` | Optional explicit trip-to-route associations. |
 | `vessel_type_map.csv` | `load_vessel_type_map_csv` | Explicit verified source-code crosswalk; not an assumed BIVAS-ID join. |
 | `nstr_appearance_map.csv` | `load_appearance_map_csv` | NSTR chapter to cargo appearance, with a source column. |
+| `arc_restrictions.csv` | `load_arc_restrictions_csv` | Structure limits, dangerous-goods permission and closures per directed arc. |
+| `navigability_vessels.csv` | `load_navigability_vessels_csv` | Vessel dimensions and dangerous-goods flag per vessel state. |
 
 [Back to contents](#contents)
 
@@ -74,6 +77,22 @@ flowchart LR
 ```
 
 `ivs_trips.csv` keeps the original Dutch export column names, because renaming them at the source would break traceability to the register. The adapter maps them to typed fields and records the mapping in `IVS_COLUMNS`. Rejected trips are reported with a coded reason from [Trip rejection reason](../docs/enumerations.md#trip-rejection-reason) rather than dropped.
+
+[Back to contents](#contents)
+
+## Navigability schemas
+
+The navigability evaluator reads restrictions and vessel states, and evaluates supplied routes from `arc_profiles.csv` and `route_sequences.csv`. It never reads cost inputs. See [Navigability](../docs/navigability.md).
+
+```mermaid
+flowchart LR
+    A[arc_restrictions.csv] --> N[navigability evaluator]
+    B[navigability_vessels.csv] --> N
+    C[arc_profiles.csv and route_sequences.csv] --> N
+    N --> D[route summary and findings]
+```
+
+Blank limits mean no limit. Blank flags use `dangerous_goods_permitted=true`, `is_open=true` and `carries_dangerous_goods=false`. A blank air draught is unknown, not zero.
 
 [Back to contents](#contents)
 

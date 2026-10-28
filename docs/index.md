@@ -9,7 +9,7 @@
 
 ## Status
 
-The project is pre-alpha. Version 0.2 provides cargo-independent fuel resolution, weekly and extended IVS adapters, directed supplied sequences and complete-trip costing. The cost branch performs no route search or navigability checks. Navigability is developed on a dependent branch before later routing integration.
+The project is pre-alpha. Version 0.2 provides cargo-independent fuel resolution, weekly and extended IVS adapters, directed supplied sequences and complete-trip costing. Version 0.3 adds an independent navigability evaluator for supplied arcs and routes. Version 0.4 adds traffic assignment: IVS trips are routed over the EuRIS network, the route search minimises the cost function, and physical limits enter route choice as penalties that are always reported.
 
 [Back to contents](#contents)
 
@@ -23,6 +23,9 @@ Every document in the repository is listed here. If a page is not in this table,
 | Documentation index | `docs/index.md` | Which document do I need. |
 | Architecture | [`docs/architecture.md`](architecture.md) | How are the layers separated and what may import what. |
 | Cost module | [`docs/cost-module.md`](cost-module.md) | Which formulas are applied and what is assumed. |
+| Navigability | [`docs/navigability.md`](navigability.md) | Which physical limits are checked and how they become route-choice penalties. |
+| Traffic assignment | [`docs/assignment.md`](assignment.md) | How trips are routed, how the cost function chooses the route and what each output holds. |
+| EuRIS inputs | [`docs/euris-inputs.md`](euris-inputs.md) | Which EuRIS files and columns build the network and its limits. |
 | Case configuration | [`docs/configuration.md`](configuration.md) | How do I write a run TOML and what does each key do. |
 | Data contracts | [`docs/data-contracts.md`](data-contracts.md) | Which columns are required and what does each one drive. |
 | Enumerations | [`docs/enumerations.md`](enumerations.md) | Which values are allowed and what does each value mean. |
@@ -32,8 +35,6 @@ Every document in the repository is listed here. If a page is not in this table,
 | Schema templates | [`schemas/README.md`](../schemas/README.md) | What is each header-only CSV template for. |
 | Reference-data status | [`data/README.md`](../data/README.md) | Why is the fuel table absent and what replaces it. |
 
-The external IWW folder holds scripts, datasets and runs. Start with `IWW/model/guides/20261021_iww_cost_function_guide.html` for the checked synthetic workflow; `IWW/model/README.md` indexes the local documents. Real IVS journey totals require supplied model routes, not fabricated OD links.
-
 [Back to contents](#contents)
 
 ## Find by task
@@ -41,7 +42,9 @@ The external IWW folder holds scripts, datasets and runs. Start with `IWW/model/
 | I want to | Start at |
 | --- | --- |
 | Run a first calculation | [Examples](examples.md#synthetic-repository-example) |
-| Run a cost estimation on real data | External `IWW\model\instructions\<yyyymmdd>_cost_function_run.md` |
+| Assign trips to the network | [Traffic assignment](assignment.md#running-it) |
+| Choose a route-search metric or penalty | [Assignment settings](assignment.md#settings) and [penalties](assignment.md#penalties) |
+| Understand a trip status | [Trip status](enumerations.md#trip-status) |
 | Set up a case of my own | [Case configuration](configuration.md) |
 | Understand a run option such as `fuel_policy` | [Enumerations](enumerations.md#fuel-resolution-policy) |
 | Fix a rejected input file | [Data contracts](data-contracts.md) and [schemas](../schemas/README.md) |

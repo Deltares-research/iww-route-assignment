@@ -52,7 +52,8 @@ Install the wheel in a clean virtual environment and run the synthetic example b
 - Do not add production data or private paths.
 - Record assumptions and source provenance.
 - Keep the readable scalar path and batch path equivalent.
-- Open separate issues for routing, navigability, locks and unloading.
+- Keep `costs` and `navigability` independent; combine them only through `restrict_choice_weights`.
+- Open separate issues for routing, locks and unloading.
 
 [Back to contents](#contents)
 

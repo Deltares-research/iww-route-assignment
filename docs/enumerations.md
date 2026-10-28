@@ -13,6 +13,13 @@ Every value in this page is a closed set. Any other value raises `ValidationErro
 7. [Trip rejection reason](#trip-rejection-reason)
 8. [Waterway CEMT classes](#waterway-cemt-classes)
 9. [Vessel classes and families](#vessel-classes-and-families)
+10. [Structure type](#structure-type)
+11. [Restriction type](#restriction-type)
+12. [Navigability status](#navigability-status)
+13. [Route cost metric](#route-cost-metric)
+14. [Trip status](#trip-status)
+15. [Penalty type](#penalty-type)
+16. [Assignment run options](#assignment-run-options)
 
 ## How to read this page
 
@@ -182,7 +189,7 @@ Interpolation is linear in rank, not in a physical dimension. This is a modellin
 
 ## Vessel classes and families
 
-RWS vessel classes are open text, not a closed enumeration, because the supported set is defined by your `fuel_observations.csv` and `vessel_references.csv`. They are normalised before comparison: surrounding whitespace is removed, `M` followed by digits is upper-cased, and the final length or beam letter of a convoy label is lower-cased, so `BII-2B` and `BII-2b` (or `C3L` and `C3l`) are the same class. Only letter case is canonicalised: different codes such as `B04` and `BO4` remain different and need a verified crosswalk.
+RWS vessel classes are open text, not a closed enumeration, because the supported set is defined by your `fuel_observations.csv` and `vessel_references.csv`. They are normalised before comparison: surrounding whitespace is removed, `M` followed by digits is upper-cased, and the final length or beam letter of a convoy label is lower-cased, so `BII-2B` and `BII-2b` (or `C3L` and `C3l`) are the same class. Only letter case is canonicalised: different codes such as `B04` and `BO4` remain different and need a verified crosswalk. The confirmed IVS crosswalk `io.IVS_SK_CODE_CROSSWALK` maps `B01`, `B02` and `B04` to `BO1`, `BO2` and `BO4`. The assignment applies it through `VesselCatalogue(class_aliases=...)`.
 
 `vessel_family` derives a coarse family from the first letter, used only to prefer a same-family proxy in step 4.
 
@@ -206,5 +213,125 @@ Proxy distance is the weighted sum of the terms below, from `FuelProxyWeights`. 
 | `draught_empty` | 0.25 | Relative difference to the target. |
 
 Ties are broken by the sorted class label, so proxy selection does not depend on input row order.
+
+[Back to contents](#contents)
+
+## Structure type
+
+`StructureType`. Direction: input in `arc_restrictions.csv` and output in navigability findings.
+
+| Value | Meaning |
+| --- | --- |
+| `waterway` | Fairway section limits, such as permitted draught or dimensions. |
+| `bridge` | Fixed or movable bridge; usually an air-draught limit. |
+| `lock` | Lock chamber; usually length, beam and draught limits. |
+| `weir` | Weir or barrier; usually a closure state. |
+
+[Back to contents](#contents)
+
+## Restriction type
+
+`RestrictionType`. Direction: output in navigability findings.
+
+| Value | Meaning |
+| --- | --- |
+| `length` | Vessel length exceeds `max_length_m`. |
+| `beam` | Beam plus beam clearance exceeds `max_beam_m`. |
+| `draught` | Draught plus under-keel clearance exceeds `max_draught_m`. |
+| `air_draught` | Air draught plus air clearance exceeds `max_air_draught_m`, or air draught is unknown. |
+| `dangerous_goods` | Vessel carries dangerous goods where they are not permitted. |
+| `closed` | Structure is closed (`is_open` false). |
+| `coverage` | Arc has no restriction rows while coverage is required. |
+
+[Back to contents](#contents)
+
+## Navigability status
+
+`NavigabilityStatus`. Direction: output. Ordered from permissive to blocking; an arc or route takes its most restrictive status.
+
+| Value | Meaning | Routing use |
+| --- | --- | --- |
+| `navigable` | No finding. | Permitted. |
+| `undetermined` | Missing vessel value or missing restriction coverage. | Strict mask: excluded unless `allow_undetermined=True`. Assignment: `undetermined_h`. |
+| `not_navigable` | A restriction is violated. | Strict mask: excluded. Assignment: a penalty for the limit type. |
+
+Run options: `require_coverage` (default `true`) makes uncovered arcs `undetermined`; `allow_undetermined` (default `false`) admits `undetermined` arcs in `navigable_arc_mask`. `NavigabilityMargins` holds `under_keel_clearance_m`, `air_clearance_m` and `beam_clearance_m`, each defaulting to zero. See [Navigability](navigability.md).
+
+[Back to contents](#contents)
+
+## Route cost metric
+
+`RouteCostMetric`. Direction: input in `AssignmentSettings.metric`, output in `trips.route_metric`.
+
+| Value | Meaning |
+| --- | --- |
+| `travel_cost_eur` | Default. The route search minimises the cost function's `choice_cost_eur`, with penalty hours priced at the vessel's hourly rate. |
+| `travel_time` | The route search minimises movement time, lock time and penalty hours. |
+
+Both report the full cost of the chosen route.
+
+[Back to contents](#contents)
+
+## Trip status
+
+`TripStatus`. Direction: output in `trips.status`. Checks run in this order and the first failure wins.
+
+| Value | Meaning |
+| --- | --- |
+| `snap_fail` | Origin or destination point is missing, unreadable or further than `max_snap_distance_m` from the network. |
+| `vessel_fail` | The vessel class has no vessel reference. |
+| `cost_fail` | No cost rate for the class and appearance, no cargo weight or no capacity for a loaded trip, or fuel could not be resolved. |
+| `no_path` | Origin and destination lie in different connected parts of the network. |
+| `success` | Routed and priced. |
+
+[Back to contents](#contents)
+
+## Penalty type
+
+`PenaltyType`. Direction: output in `voyage_edges.penalty_<value>_h` and `penalised_edges.penalty_type`.
+
+| Value | Kind | Applies when |
+| --- | --- | --- |
+| `beam` | physical limit | The vessel is wider than the narrowest structure or fairway on the arc. |
+| `length` | physical limit | The vessel is longer than the shortest lock on the arc. |
+| `draught` | physical limit | The vessel draught exceeds a lock or fairway draught. |
+| `air_draught` | physical limit | The vessel is higher than a fixed bridge. |
+| `undetermined` | physical limit | A limit exists but the vessel value is unknown. |
+| `cemt` | preference | The vessel CEMT class is above the waterway class. |
+| `sea` | preference | The water name is a sea name. |
+
+Penalty hours are set in `NavigabilityPenalties` and `RoutePreferences`. See [Traffic assignment](assignment.md#penalties).
+
+[Back to contents](#contents)
+
+## Assignment run options
+
+`MissingCostPolicy` in `AssignmentSettings.on_missing_cost`:
+
+| Value | Meaning |
+| --- | --- |
+| `reject` | Default. Trips without cost rates get `cost_fail` and the run continues. |
+| `fail` | The run stops and lists the missing vessel class and appearance pairs. |
+
+`DuplicateTripRule` in `read_assignment_trips(duplicate_trip_ids=...)`:
+
+| Value | Meaning |
+| --- | --- |
+| `fail` | Default. A repeated trip id stops the read. |
+| `exclude` | Every row of a repeated trip id is removed and counted. No row is chosen over another. |
+
+Other assignment options, with defaults:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `routing_ratio_step` | `0.05` | Rounds the loading ratio for the search. `None` searches with the exact load. |
+| `points_crs` | `EPSG:28992` | CRS of the trip points. |
+| `origin_column`, `destination_column` | `Eerste_Geom`, `Laatste_Geom` | Point columns to route between. |
+| `max_snap_distance_m` | `None` | Snap limit in metres. |
+| `n_workers` | `1` | Worker processes. |
+| `origins_per_search` | `256` | Origins per Dijkstra call. |
+| `EurisLimitRules.lock_passage_time_h` | `0.5` | Reported time per lock. |
+| `EurisLimitRules.fairway_length` | `False` | Adds the fairway length limit. |
+| `VesselCatalogue.class_aliases` | empty | Explicit source label to vessel class mapping. Use `io.IVS_SK_CODE_CROSSWALK` for IVS. |
 
 [Back to contents](#contents)

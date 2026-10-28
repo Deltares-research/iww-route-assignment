@@ -1,0 +1,6 @@
+arc_id,structure_id,structure_type,max_length_m,max_beam_m,max_draught_m,max_air_draught_m,dangerous_goods_permitted,is_open,source
+ab,ww-ab,waterway,,,3.5,,true,true,synthetic-test
+ab,br-1,bridge,,,,7.0,,,synthetic-test
+bc,ww-bc,waterway,,,2.8,,,,synthetic-test
+bc,lock-1,lock,110.0,11.4,,,false,true,synthetic-test
+

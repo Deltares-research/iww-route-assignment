@@ -1,5 +1,7 @@
 # Case configuration
 
+This page covers the cost case TOML. Assignment runs take their settings as Python objects, see [Traffic assignment](assignment.md#settings).
+
 The generic case runner `run_cost_case.py` takes exactly one argument, the path to a case TOML file. Every relative path inside that file is resolved against the folder holding the file, so a case folder is portable between machines and contains no user profile or OneDrive path.
 
 ## Contents

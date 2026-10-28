@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 import numpy as np
 import numpy.typing as npt
@@ -30,35 +31,82 @@ def calculate_arc_cost(
     return calculate_arc_costs((arc,), rates, scenario, (fuel,))[0]
 
 
-def calculate_arc_costs(
-    arcs: Sequence[ArcTravelInput],
+def calculate_arc_choice_time_h(arc: ArcTravelInput) -> float:
+    """Return the route-choice time of one arc without needing rates or fuel.
+
+    The value equals ``ArcCostBreakdown.choice_time_h``: movement time, reported
+    fixed times and the choice-only calibration and relaxation times.
+    """
+    movement_time = float(arc.distance_km) / float(arc.realised_speed_km_per_h)
+    return (
+        movement_time
+        + arc.lock_service_time_h
+        + arc.lock_waiting_time_h
+        + arc.bridge_service_time_h
+        + arc.real_delay_time_h
+        + arc.calibration_delay_time_h
+        + arc.relaxation_penalty_time_h
+    )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class ArcCostArrays:
+    """Arc cost components as aligned arrays, one element per arc.
+
+    This is the numerical core of :func:`calculate_arc_costs`. Route search uses it
+    directly, so search weights and reported costs come from the same formula.
+    """
+
+    movement_time_h: npt.NDArray[np.float64]
+    reported_fixed_time_h: npt.NDArray[np.float64]
+    reported_time_h: npt.NDArray[np.float64]
+    choice_only_time_h: npt.NDArray[np.float64]
+    choice_time_h: npt.NDArray[np.float64]
+    distance_cost_eur: npt.NDArray[np.float64]
+    labour_cost_eur: npt.NDArray[np.float64]
+    maintenance_time_cost_eur: npt.NDArray[np.float64]
+    insurance_cost_eur: npt.NDArray[np.float64]
+    interest_cost_eur: npt.NDArray[np.float64]
+    depreciation_cost_eur: npt.NDArray[np.float64]
+    port_dues_cost_eur: npt.NDArray[np.float64]
+    other_cost_eur: npt.NDArray[np.float64]
+    time_cost_eur: npt.NDArray[np.float64]
+    sailing_fuel_l: npt.NDArray[np.float64]
+    idle_fuel_l: npt.NDArray[np.float64]
+    sailing_fuel_cost_eur: npt.NDArray[np.float64]
+    idle_fuel_cost_eur: npt.NDArray[np.float64]
+    reported_variable_cost_eur: npt.NDArray[np.float64]
+    choice_only_cost_eur: npt.NDArray[np.float64]
+    choice_cost_eur: npt.NDArray[np.float64]
+
+
+def calculate_arc_cost_arrays(
+    distance_km: npt.ArrayLike,
+    realised_speed_km_per_h: npt.ArrayLike,
+    reported_fixed_time_h: npt.ArrayLike,
+    choice_only_time_h: npt.ArrayLike,
+    fuel_rate_l_per_h: npt.ArrayLike,
     rates: CostRates,
     scenario: ScenarioCostParameters,
-    fuels: Sequence[ResolvedFuelRate],
-) -> tuple[ArcCostBreakdown, ...]:
-    """Calculate a vectorised batch equivalent to repeated scalar calls."""
-    if len(arcs) != len(fuels):
-        raise ValidationError(
-            f"arcs and fuels must have equal length; received {len(arcs)} and {len(fuels)}"
-        )
-    if not arcs:
-        return ()
+) -> ArcCostArrays:
+    """Calculate arc costs from aligned arrays without building one object per arc.
 
-    distance = _array(arcs, "distance_km")
-    speed = _array(arcs, "realised_speed_km_per_h")
+    ``reported_fixed_time_h`` is lock service, lock waiting, bridge service and real
+    delay. ``choice_only_time_h`` is calibration delay and relaxation penalty.
+    """
+    distance = _checked("distance_km", distance_km)
+    speed = _checked("realised_speed_km_per_h", realised_speed_km_per_h)
+    reported_fixed_time = _checked("reported_fixed_time_h", reported_fixed_time_h)
+    choice_only_time = _checked("choice_only_time_h", choice_only_time_h)
+    fuel_rate = _checked("fuel_rate_l_per_h", fuel_rate_l_per_h)
+    shapes = {a.shape for a in (distance, speed, reported_fixed_time, choice_only_time, fuel_rate)}
+    if len(shapes) != 1:
+        raise ValidationError(f"Arc cost arrays must have equal shapes; received {shapes}")
+    if np.any(speed <= 0):
+        raise ValidationError("realised_speed_km_per_h must be positive")
+
     movement_time = distance / speed
-    reported_fixed_time = np.zeros(len(arcs), dtype=np.float64)
-    for name in (
-        "lock_service_time_h",
-        "lock_waiting_time_h",
-        "bridge_service_time_h",
-        "real_delay_time_h",
-    ):
-        reported_fixed_time += _array(arcs, name)
     reported_time = movement_time + reported_fixed_time
-    choice_only_time = _array(arcs, "calibration_delay_time_h") + _array(
-        arcs, "relaxation_penalty_time_h"
-    )
     choice_time = reported_time + choice_only_time
 
     distance_cost = rates.maintenance_eur_per_km * distance
@@ -81,14 +129,41 @@ def calculate_arc_costs(
         + other_cost
     )
 
-    fuel_rate = np.asarray([fuel.fuel_rate_l_per_h for fuel in fuels], dtype=np.float64)
     sailing_fuel = fuel_rate * movement_time
     idle_fuel = fuel_rate * scenario.idle_fuel_factor * reported_fixed_time
     sailing_fuel_cost = sailing_fuel * scenario.fuel_price_eur_per_l
     idle_fuel_cost = idle_fuel * scenario.fuel_price_eur_per_l
     reported_variable_cost = distance_cost + time_cost + sailing_fuel_cost + idle_fuel_cost
 
-    hourly_rate = (
+    choice_only_cost = hourly_rate_eur_per_h(rates, scenario) * choice_only_time
+    return ArcCostArrays(
+        movement_time_h=movement_time,
+        reported_fixed_time_h=reported_fixed_time,
+        reported_time_h=reported_time,
+        choice_only_time_h=choice_only_time,
+        choice_time_h=choice_time,
+        distance_cost_eur=distance_cost,
+        labour_cost_eur=labour_cost,
+        maintenance_time_cost_eur=maintenance_time_cost,
+        insurance_cost_eur=insurance_cost,
+        interest_cost_eur=interest_cost,
+        depreciation_cost_eur=depreciation_cost,
+        port_dues_cost_eur=port_dues_cost,
+        other_cost_eur=other_cost,
+        time_cost_eur=time_cost,
+        sailing_fuel_l=sailing_fuel,
+        idle_fuel_l=idle_fuel,
+        sailing_fuel_cost_eur=sailing_fuel_cost,
+        idle_fuel_cost_eur=idle_fuel_cost,
+        reported_variable_cost_eur=reported_variable_cost,
+        choice_only_cost_eur=choice_only_cost,
+        choice_cost_eur=reported_variable_cost + choice_only_cost,
+    )
+
+
+def hourly_rate_eur_per_h(rates: CostRates, scenario: ScenarioCostParameters) -> float:
+    """Return the time-dependent hourly rate that prices choice-only time."""
+    return (
         rates.labour_eur_per_h
         + rates.maintenance_eur_per_h
         + rates.insurance_eur_per_h
@@ -97,35 +172,44 @@ def calculate_arc_costs(
         + rates.port_dues_eur_per_h
         + rates.other_eur_per_h
     )
-    choice_only_cost = hourly_rate * choice_only_time
-    choice_cost = reported_variable_cost + choice_only_cost
 
-    return tuple(
-        ArcCostBreakdown(
-            movement_time_h=float(movement_time[index]),
-            reported_fixed_time_h=float(reported_fixed_time[index]),
-            reported_time_h=float(reported_time[index]),
-            choice_only_time_h=float(choice_only_time[index]),
-            choice_time_h=float(choice_time[index]),
-            distance_cost_eur=float(distance_cost[index]),
-            labour_cost_eur=float(labour_cost[index]),
-            maintenance_time_cost_eur=float(maintenance_time_cost[index]),
-            insurance_cost_eur=float(insurance_cost[index]),
-            interest_cost_eur=float(interest_cost[index]),
-            depreciation_cost_eur=float(depreciation_cost[index]),
-            port_dues_cost_eur=float(port_dues_cost[index]),
-            other_cost_eur=float(other_cost[index]),
-            time_cost_eur=float(time_cost[index]),
-            sailing_fuel_l=float(sailing_fuel[index]),
-            idle_fuel_l=float(idle_fuel[index]),
-            sailing_fuel_cost_eur=float(sailing_fuel_cost[index]),
-            idle_fuel_cost_eur=float(idle_fuel_cost[index]),
-            reported_variable_cost_eur=float(reported_variable_cost[index]),
-            choice_only_cost_eur=float(choice_only_cost[index]),
-            choice_cost_eur=float(choice_cost[index]),
-            fuel=fuels[index],
+
+def calculate_arc_costs(
+    arcs: Sequence[ArcTravelInput],
+    rates: CostRates,
+    scenario: ScenarioCostParameters,
+    fuels: Sequence[ResolvedFuelRate],
+) -> tuple[ArcCostBreakdown, ...]:
+    """Calculate a vectorised batch equivalent to repeated scalar calls."""
+    if len(arcs) != len(fuels):
+        raise ValidationError(
+            f"arcs and fuels must have equal length; received {len(arcs)} and {len(fuels)}"
         )
-        for index in range(len(arcs))
+    if not arcs:
+        return ()
+
+    reported_fixed_time = np.zeros(len(arcs), dtype=np.float64)
+    for name in (
+        "lock_service_time_h",
+        "lock_waiting_time_h",
+        "bridge_service_time_h",
+        "real_delay_time_h",
+    ):
+        reported_fixed_time += _array(arcs, name)
+    costs = calculate_arc_cost_arrays(
+        _array(arcs, "distance_km"),
+        _array(arcs, "realised_speed_km_per_h"),
+        reported_fixed_time,
+        _array(arcs, "calibration_delay_time_h") + _array(arcs, "relaxation_penalty_time_h"),
+        np.asarray([fuel.fuel_rate_l_per_h for fuel in fuels], dtype=np.float64),
+        rates,
+        scenario,
+    )
+    names = [name for name in ArcCostArrays.__slots__ if not name.startswith("__")]
+    columns = [getattr(costs, name).tolist() for name in names]
+    return tuple(
+        ArcCostBreakdown(**dict(zip(names, values, strict=True)), fuel=fuels[index])
+        for index, values in enumerate(zip(*columns, strict=True))
     )
 
 
@@ -161,6 +245,28 @@ def combine_trip_cost(
         arc_choice_cost_eur=arc_choice,
         choice_total_cost_eur=arc_choice + fixed.total_fixed_cost_eur,
     )
+
+
+def combine_trip_cost_arrays(
+    arcs: ArcCostArrays, fixed: TripFixedCostBreakdown
+) -> TripCostBreakdown:
+    """Array form of :func:`combine_trip_cost`: sum arcs, add the fixed cost once."""
+    arc_reported = float(arcs.reported_variable_cost_eur.sum())
+    arc_choice = float(arcs.choice_cost_eur.sum())
+    return TripCostBreakdown(
+        arc_reported_cost_eur=arc_reported,
+        fixed_cost_eur=fixed.total_fixed_cost_eur,
+        reported_total_cost_eur=arc_reported + fixed.total_fixed_cost_eur,
+        arc_choice_cost_eur=arc_choice,
+        choice_total_cost_eur=arc_choice + fixed.total_fixed_cost_eur,
+    )
+
+
+def _checked(name: str, values: npt.ArrayLike) -> npt.NDArray[np.float64]:
+    array = np.asarray(values, dtype=np.float64)
+    if not np.all(np.isfinite(array)) or np.any(array < 0):
+        raise ValidationError(f"{name} must be finite and non-negative")
+    return array
 
 
 def _array(arcs: Sequence[ArcTravelInput], name: str) -> npt.NDArray[np.float64]:

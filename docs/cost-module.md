@@ -6,7 +6,8 @@
 2. [Formula](#formula)
 3. [Fuel resolution](#fuel-resolution)
 4. [Reported and choice values](#reported-and-choice-values)
-5. [Known assumptions](#known-assumptions)
+5. [Route assignment](#route-assignment)
+6. [Known assumptions](#known-assumptions)
 
 ## Scope
 
@@ -70,6 +71,19 @@ Reported time and cost include physical delays. Choice time adds calibration and
 
 [Back to contents](#contents)
 
+## Route assignment
+
+`iww_route_assignment.assignment` uses this module for both route search and reported cost. `calculate_arc_cost_arrays` is the array form of the arc formula. It gives every edge weight for a routing key in one call, and prices each chosen route. `calculate_arc_costs` uses the same function, so search and reported values cannot drift apart. `combine_trip_cost_arrays` adds the fixed cost once, like `combine_trip_cost`.
+
+`RouteCostMetric` selects what the route search minimises:
+
+- `travel_cost_eur` (default): `choice_cost_eur`, with penalty hours priced at the hourly rate (`hourly_rate_eur_per_h`).
+- `travel_time`: choice time in hours, which needs no rate or fuel.
+
+Both metrics report the full cost of the chosen route. A trip whose cost inputs cannot be resolved gets status `cost_fail` under either metric. Empty trips are routed and costed like loaded trips. They have loading ratio zero, so the light-loading fuel rate applies, and they carry no fixed cargo-handling cost. See [Traffic assignment](assignment.md).
+
+[Back to contents](#contents)
+
 ## Known assumptions
 
 - Loading anchors require confirmation against source documentation.
@@ -77,6 +91,7 @@ Reported time and cost include physical delays. Choice time adds calibration and
 - A nearest waterway boundary is low confidence.
 - The STREAM compatibility path is optional and must label placeholders.
 - Fuel-table source units and redistribution rights require owner confirmation.
+- Route assignment uses EuRIS speed limits, not vessel-specific speeds. Penalty sizes come from the previous assignment and are not calibrated.
 
 [Back to contents](#contents)
 
