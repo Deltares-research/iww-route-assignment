@@ -102,6 +102,7 @@ class PenaltyType(StrEnum):
     UNDETERMINED = "undetermined"
     CEMT = "cemt"
     SEA = "sea"
+    WEIR = "weir"
 
 
 class TripStatus(StrEnum):

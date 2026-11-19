@@ -166,9 +166,11 @@ def prepare_trips(
                 "loading_ratio": ratio,
                 "loading_ratio_source": ratio_source,
                 "cost_error": cost_error,
+                "departure_time": trip.departure_time,
             }
         )
     table = pd.DataFrame.from_records(records)
+    table["departure_time"] = pd.to_datetime(table["departure_time"])
     table["status"] = TRIP_PENDING
     table["detail"] = ""
 

@@ -98,6 +98,8 @@ def test_penalties_and_preferences_reject_negative_hours() -> None:
         NavigabilityPenalties(beam_h=-1.0)
     with pytest.raises(ValidationError):
         RoutePreferences(sea_h=float("nan"))
+    with pytest.raises(ValidationError):
+        RoutePreferences(weir_h=-1.0)
     assert NavigabilityPenalties(flat_beam_countries=frozenset({" nl "})).flat_beam_countries == {
         "NL"
     }

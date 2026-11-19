@@ -72,8 +72,8 @@ class RoutingOutput:
 
     def extend(self, other: RoutingOutput) -> None:
         self.trips.extend(other.trips)
-        for name in EDGE_COLUMNS:
-            self.edges[name].extend(other.edges[name])
+        for name, parts in other.edges.items():
+            self.edges.setdefault(name, []).extend(parts)
         for key, (trips, cargo, classes) in other.penalised.items():
             self._add_penalised(key, trips, cargo, classes)
 
@@ -86,7 +86,7 @@ class RoutingOutput:
         entry[2].update(classes)
 
 
-class _Caches:
+class RoutingCaches:
     """Per-process caches: penalty profiles per vessel state, fuel rates per ratio."""
 
     def __init__(self, context: RoutingContext) -> None:
@@ -184,7 +184,7 @@ def _record_edges(
     )
 
 
-def _record_penalties(
+def record_penalties(
     output: RoutingOutput, edges: npt.NDArray[np.int64], profile: PenaltyProfile, row: Any
 ) -> int:
     penalised = 0
@@ -207,7 +207,100 @@ def _record_penalties(
     return penalised
 
 
-def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) -> RoutingOutput:
+def key_weights(
+    context: RoutingContext, caches: RoutingCaches, first: Any
+) -> npt.NDArray[np.float64]:
+    """Search weight per edge for the routing key of ``first``, a row of the trip table."""
+    metric = context.settings.metric
+    vessel, is_loaded = str(first.vessel_rws_class), bool(first.is_loaded)
+    profile = caches.profile(vessel, is_loaded)
+    if metric is RouteCostMetric.TRAVEL_COST_EUR:
+        rates = context.cost_inputs.rates_for(vessel, str(first.appearance))
+        fuels = caches.fuel_rates(vessel, float(first.routing_loading_ratio))
+        return search_weights(
+            metric,
+            context.travel,
+            profile.total_h,
+            rates=rates,
+            scenario=context.cost_inputs.scenario,
+            fuel_rate_l_per_h=np.array([f.fuel_rate_l_per_h for f in fuels]),
+        )
+    return search_weights(metric, context.travel, profile.total_h)
+
+
+def record_route(
+    context: RoutingContext,
+    caches: RoutingCaches,
+    output: RoutingOutput,
+    row: Any,
+    nodes: list[int],
+    route_weight: float,
+    record: dict[str, Any],
+    profile: PenaltyProfile,
+    *,
+    fixed_time_adjustment_h: npt.NDArray[np.float64] | None = None,
+    extra_edge_columns: dict[str, npt.NDArray[Any]] | None = None,
+    extra_trip_fields: dict[str, Any] | None = None,
+) -> None:
+    """Price one chosen route with the exact load and append it to ``output``.
+
+    ``fixed_time_adjustment_h`` holds one value per route edge and is added to the reported
+    fixed time of that edge, for time a simulation realised on this trip only. The
+    ``extra_*`` arguments add columns to the edge and trip rows.
+    """
+    vessel = str(row.vessel_rws_class)
+    edges = np.asarray(context.network.path_edges(nodes), dtype=np.int64)
+    travel, penalty_h, price_edges = context.travel, profile.total_h, edges
+    if fixed_time_adjustment_h is not None:
+        travel = EdgeTravel(
+            context.travel.distance_km[edges],
+            context.travel.speed_km_per_h[edges],
+            context.travel.reported_fixed_time_h[edges] + fixed_time_adjustment_h,
+        )
+        penalty_h, price_edges = profile.total_h[edges], np.arange(len(edges))
+    try:
+        price = price_route(
+            price_edges,
+            travel,
+            penalty_h,
+            caches.fuel_rates(vessel, float(row.loading_ratio), edges),
+            context.cost_inputs.rates_for(vessel, str(row.appearance)),
+            context.cost_inputs.scenario,
+            TripCostInput(cargo_t=float(row.cargo_t), is_loaded=bool(row.is_loaded)),
+        )
+    except IWWRouteAssignmentError as error:
+        output.trips.append(record | {"status": TripStatus.COST_FAIL.value, "detail": str(error)})
+        return
+    _record_edges(output, int(row.voyage_index), edges, nodes, profile, price)
+    for name, values in (extra_edge_columns or {}).items():
+        output.edges.setdefault(name, []).append(values)
+    output.trips.append(
+        record
+        | {
+            "status": TripStatus.SUCCESS.value,
+            "detail": "",
+            "n_edges": len(edges),
+            "distance_km": float(context.travel.distance_km[edges].sum()),
+            "route_weight": route_weight,
+            "reported_time_h": float(price.arcs.reported_time_h.sum()),
+            "choice_time_h": float(price.arcs.choice_time_h.sum()),
+            "fuel_l": float((price.arcs.sailing_fuel_l + price.arcs.idle_fuel_l).sum()),
+            "fixed_cost_eur": price.trip.fixed_cost_eur,
+            "reported_total_cost_eur": price.trip.reported_total_cost_eur,
+            "choice_total_cost_eur": price.trip.choice_total_cost_eur,
+            "total_cost_eur": price.trip.choice_total_cost_eur,
+            "penalty_total_h": float(profile.total_h[edges].sum()),
+            "penalised_section_count": record_penalties(output, edges, profile, row),
+            "fuel_lowest_confidence": _worst_confidence(price.fuels),
+            "cost_rate_source": context.cost_inputs.rates_for(vessel, str(row.appearance)).source,
+        }
+        | (extra_trip_fields or {})
+    )
+
+
+def route_group(
+    context: RoutingContext, rows: pd.DataFrame, caches: RoutingCaches
+) -> RoutingOutput:
     """Route every trip that shares one routing key."""
     output = RoutingOutput()
     metric = context.settings.metric
@@ -217,19 +310,7 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
     base = {"route_metric": metric.value}
 
     try:
-        if metric is RouteCostMetric.TRAVEL_COST_EUR:
-            rates = context.cost_inputs.rates_for(vessel, str(first.appearance))
-            fuels = caches.fuel_rates(vessel, float(first.routing_loading_ratio))
-            weights = search_weights(
-                metric,
-                context.travel,
-                profile.total_h,
-                rates=rates,
-                scenario=context.cost_inputs.scenario,
-                fuel_rate_l_per_h=np.array([f.fuel_rate_l_per_h for f in fuels]),
-            )
-        else:
-            weights = search_weights(metric, context.travel, profile.total_h)
+        weights = key_weights(context, caches, first)
     except IWWRouteAssignmentError as error:
         for trip_index in rows["voyage_index"].tolist():
             output.trips.append(
@@ -253,56 +334,26 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
                 )
                 continue
             nodes = _paths(predecessors, int(origin), destination)
-            edges = np.asarray(context.network.path_edges(nodes), dtype=np.int64)
-            try:
-                price = price_route(
-                    edges,
-                    context.travel,
-                    profile.total_h,
-                    caches.fuel_rates(vessel, float(row.loading_ratio), edges),
-                    context.cost_inputs.rates_for(vessel, str(row.appearance)),
-                    context.cost_inputs.scenario,
-                    TripCostInput(cargo_t=float(row.cargo_t), is_loaded=bool(row.is_loaded)),
-                )
-            except IWWRouteAssignmentError as error:
-                output.trips.append(
-                    record | {"status": TripStatus.COST_FAIL.value, "detail": str(error)}
-                )
-                continue
-            _record_edges(output, int(row.voyage_index), edges, nodes, profile, price)
-            output.trips.append(
-                record
-                | {
-                    "status": TripStatus.SUCCESS.value,
-                    "detail": "",
-                    "n_edges": len(edges),
-                    "distance_km": float(context.travel.distance_km[edges].sum()),
-                    "route_weight": float(distances[destination]),
-                    "reported_time_h": float(price.arcs.reported_time_h.sum()),
-                    "choice_time_h": float(price.arcs.choice_time_h.sum()),
-                    "fuel_l": float((price.arcs.sailing_fuel_l + price.arcs.idle_fuel_l).sum()),
-                    "fixed_cost_eur": price.trip.fixed_cost_eur,
-                    "reported_total_cost_eur": price.trip.reported_total_cost_eur,
-                    "choice_total_cost_eur": price.trip.choice_total_cost_eur,
-                    "total_cost_eur": price.trip.choice_total_cost_eur,
-                    "penalty_total_h": float(profile.total_h[edges].sum()),
-                    "penalised_section_count": _record_penalties(output, edges, profile, row),
-                    "fuel_lowest_confidence": _worst_confidence(price.fuels),
-                    "cost_rate_source": context.cost_inputs.rates_for(
-                        vessel, str(row.appearance)
-                    ).source,
-                }
+            record_route(
+                context,
+                caches,
+                output,
+                row,
+                nodes,
+                float(distances[destination]),
+                record,
+                profile,
             )
     return output
 
 
 _WORKER_CONTEXT: RoutingContext | None = None
-_WORKER_CACHES: _Caches | None = None
+_WORKER_CACHES: RoutingCaches | None = None
 
 
 def _init_worker(context: RoutingContext) -> None:
     global _WORKER_CONTEXT, _WORKER_CACHES
-    _WORKER_CONTEXT, _WORKER_CACHES = context, _Caches(context)
+    _WORKER_CONTEXT, _WORKER_CACHES = context, RoutingCaches(context)
 
 
 def _route_task(groups: list[pd.DataFrame]) -> RoutingOutput:
@@ -324,7 +375,7 @@ def route_trips(context: RoutingContext, pending: pd.DataFrame) -> RoutingOutput
     output = RoutingOutput()
     workers = context.settings.n_workers
     if workers == 1 or len(groups) < 2:
-        caches = _Caches(context)
+        caches = RoutingCaches(context)
         for rows in groups:
             output.extend(route_group(context, rows, caches))
         return output

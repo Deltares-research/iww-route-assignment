@@ -82,6 +82,7 @@ def read_assignment_trips(
     duplicate_trip_ids: DuplicateTripRule | str = DuplicateTripRule.FAIL,
     settings: AssignmentSettings | None = None,
     segment_map: Mapping[str, AppearanceRule] | None = None,
+    departure_column: str | None = None,
 ) -> AssignmentTrips:
     """Validate IVS rows and attach origin and destination points.
 
@@ -89,6 +90,10 @@ def read_assignment_trips(
     cost case. ``duplicate_trip_ids="exclude"`` removes every row of a repeated trip id;
     no row is chosen over another. Point columns hold WKT in ``settings.points_crs``.
     A missing or unreadable point leaves the trip without that point.
+
+    The departure time is read from ``departure_column``: ``Eerste_Tijdstip`` for the extended
+    format and ``v05_06_begindt_evenement_iso`` for the weekmonitor. The route assignment does
+    not use it, but the lock queue simulation does.
     """
     settings = settings or AssignmentSettings()
     layout = IvsFormat(format)
@@ -104,6 +109,7 @@ def read_assignment_trips(
         cargo_weight_unit=cargo_weight_unit,
         segment_map=ASSIGNMENT_SEGMENT_MAP if segment_map is None else segment_map,
         drop_export_index=drop_export_index,
+        departure_column=departure_column,
     )
     identifiers = _row_identifiers(kept, layout, source_dataset.strip())
     position = pd.Series(range(len(kept)), index=identifiers.to_numpy())
@@ -154,7 +160,9 @@ def write_assignment_outputs(
     """Write trips, rejected rows, trip edges, intensity, penalised edges and a summary.
 
     ``assignment.gpkg`` holds the layers ``intensity`` and ``penalised_edges`` for GIS.
-    ``summary.json`` holds status counts, coverage gaps and ``metadata``.
+    ``summary.json`` holds status counts, coverage gaps and ``metadata``. Every extra table
+    of the result, such as ``lock_passages`` from the lock simulation, is written as
+    ``<name>.parquet``.
     """
     folder = Path(directory)
     folder.mkdir(parents=True, exist_ok=True)
@@ -167,6 +175,9 @@ def write_assignment_outputs(
     for layer, table in (("intensity", result.intensity), ("penalised_edges", result.penalised)):
         if not table.empty:
             table.to_file(paths["gpkg"], layer=layer, driver="GPKG")
+    for name, table in result.tables.items():
+        paths[name] = folder / f"{name}.parquet"
+        table.to_parquet(paths[name], index=False)
     summary = dict(result.summary) | {"metadata": to_record(metadata or {})}
     paths["summary"].write_text(json.dumps(summary, indent=2, default=str), encoding="utf-8")
     if result.intensity.empty:

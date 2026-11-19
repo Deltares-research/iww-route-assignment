@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import pickle
 
+import geopandas as gpd
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -15,9 +16,11 @@ from iww_route_assignment import (
     ArcRestriction,
     ArcTravelInput,
     AssignmentSettings,
+    AssignmentTrips,
     DuplicateTripRule,
     NavigabilityPenalties,
     NavigabilityVessel,
+    RouteCostMetric,
     RoutePreferences,
     StructureType,
     ValidationError,
@@ -271,3 +274,108 @@ def test_write_outputs(tmp_path, network, cost_inputs, catalogue) -> None:
     assert summary["metadata"]["settings"]["metric"] == "travel_cost_eur"
     assert paths["gpkg"].is_file()
     assert pd.read_csv(paths["rejections"]).empty
+
+
+def _weir_graph() -> nx.Graph:
+    """Lek-like stretch S-T. The lock path S-L-T is slower than the weir canal S-W-T."""
+    graph = nx.Graph()
+    for node, lon in {"S": 5.0, "L": 5.05, "W": 5.05, "T": 5.1}.items():
+        graph.add_node(node, geometry=Point(lon, 52.0 if node != "W" else 52.01))
+    for u, v, name, code in (
+        ("S", "L", "Voorhavens Sluiscomplex Hagestein, Lek", "NLSL"),
+        ("L", "T", "Lek", "NLLT"),
+        ("S", "W", "Benedenstrooms Stuwkanaal te Hagestein, Lek", "NLSW"),
+        ("W", "T", "Bovenstrooms Stuwkanaal te Hagestein, Lek", "NLWT"),
+    ):
+        graph.add_edge(u, v, length_m=3000.0, code=code, name=name, calspeed_up=12.0)
+    return graph
+
+
+def test_weir_canal_edges_are_flagged_and_can_be_switched_off() -> None:
+    inputs = build_euris_inputs(_weir_graph())
+    assert {e.arc_id: e.weir_canal for e in inputs.network.edges} == {
+        "S|L": False,
+        "L|T": False,
+        "S|W": True,
+        "W|T": True,
+    }
+    assert inputs.report["weir_canal_edges"] == 2
+    off = build_euris_inputs(_weir_graph(), rules=EurisLimitRules(weir_canal_pattern=None))
+    assert not any(e.weir_canal for e in off.network.edges) and off.report["weir_canal_edges"] == 0
+    with pytest.raises(ValidationError, match="regex"):
+        EurisLimitRules(weir_canal_pattern="(")
+
+
+def test_weir_canal_is_penalised_and_reported(catalogue) -> None:
+    network = build_euris_inputs(_weir_graph()).network
+    vessel = NavigabilityVessel("m1", length_m=38.5, beam_m=5.05, draught_m=1.0)
+    profile = penalty_profile(
+        network,
+        build_restriction_index([]),
+        vessel,
+        "I",
+        NavigabilityPenalties(),
+        RoutePreferences(),
+    )
+    arcs = [e.arc_id for e in network.edges]
+    weir = dict(zip(arcs, profile.hours[PenaltyType.WEIR].tolist(), strict=True))
+    assert weir == {"S|L": 0.0, "L|T": 0.0, "S|W": 1000.0, "W|T": 1000.0}
+    index = arcs.index("S|W")
+    detail = profile.details[index][0]
+    assert detail.penalty_type is PenaltyType.WEIR and detail.structure_type is StructureType.WEIR
+    free = penalty_profile(
+        network,
+        build_restriction_index([]),
+        vessel,
+        "I",
+        NavigabilityPenalties(),
+        RoutePreferences(weir_h=0.0),
+    )
+    assert free.total_h.tolist() == [0.0] * 4 and index in free.details
+
+
+def test_route_uses_the_lock_beside_the_weir_not_the_weir(cost_inputs, catalogue) -> None:
+    # Edges at 3 km and 12 km/h: the lock path takes 0.5 h of lock time more than the weir.
+    structures = build_euris_structures(
+        pd.DataFrame({"section_id": ["NLSL"], "lock_id": ["NLHAG"], "bridge_id": [None]}),
+        pd.DataFrame(
+            {
+                "lock_id": ["NLHAG"],
+                "dim_gate_width": [18.0],
+                "dim_usable_length": [220.0],
+                "mdraughtcm": [np.nan],
+            }
+        ),
+        OPENINGS.iloc[0:0],
+    )
+    inputs = build_euris_inputs(_weir_graph(), structures)
+    trips = AssignmentTrips(
+        (make_trip("t", 0.0),),
+        gpd.GeoSeries([Point(5.0, 52.0)], crs="EPSG:4326"),
+        gpd.GeoSeries([Point(5.1, 52.0)], crs="EPSG:4326"),
+    )
+    settings = AssignmentSettings(metric=RouteCostMetric.TRAVEL_TIME, points_crs="EPSG:4326")
+    with_penalty = assign_traffic(
+        trips, inputs.network, cost_inputs, catalogue, inputs.restrictions, settings=settings
+    )
+    assert with_penalty.trip_edges["arc_id"].tolist() == ["S|L", "L|T"]
+    assert with_penalty.trips.loc[0, "reported_time_h"] == pytest.approx(0.5 + 0.5)
+    off = build_euris_inputs(_weir_graph(), structures, EurisLimitRules(weir_canal_pattern=None))
+    without = assign_traffic(
+        trips, off.network, cost_inputs, catalogue, off.restrictions, settings=settings
+    )
+    assert without.trip_edges["arc_id"].tolist() == ["S|W", "W|T"]
+    # The penalty steers, it never forbids: with the lock path cut, the weir route is still sailed
+    # and the penalty is reported.
+    cut = _weir_graph()
+    cut.remove_edge("L", "T")
+    only_weir = build_euris_inputs(cut, structures)
+    result = assign_traffic(
+        trips, only_weir.network, cost_inputs, catalogue, only_weir.restrictions, settings=settings
+    )
+    assert result.trips.loc[0, "status"] == "success"
+    assert result.trips.loc[0, "penalty_total_h"] == pytest.approx(2000.0)
+    assert result.penalised["penalty_type"].tolist() == ["weir", "weir"]
+    assert result.trips.loc[0, "reported_time_h"] == pytest.approx(
+        0.5
+    )  # no penalty in reported time

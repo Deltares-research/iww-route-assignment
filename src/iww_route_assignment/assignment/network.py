@@ -38,6 +38,8 @@ class NetworkEdge:
     waterway_cemt_class: str | None = None
     lock_service_time_h: float = 0.0
     lock_count: int = 0
+    weir_canal: bool = False
+    """The edge passes a weir. Vessels use the lock next to it, so it is a route-choice penalty."""
 
     def __post_init__(self) -> None:
         for name in ("arc_id", "from_node", "to_node"):

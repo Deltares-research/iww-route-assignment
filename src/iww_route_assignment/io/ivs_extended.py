@@ -6,7 +6,13 @@ import pandas as pd
 
 from ..domain.models import AppearanceRule, TripObservation
 from ..exceptions import ValidationError
-from ._frames import integer_value, number_value, optional_text_value, text_value
+from ._frames import (
+    departure_time_value,
+    integer_value,
+    number_value,
+    optional_text_value,
+    text_value,
+)
 
 EXTENDED_COLUMNS = {
     "Jaar",
@@ -20,6 +26,8 @@ EXTENDED_COLUMNS = {
     "UNLO_Herkomst",
     "UNLO_Bestemming",
 }
+EXTENDED_DEPARTURE_COLUMN = "Eerste_Tijdstip"
+"""Time at the first counting point. Optional: only the lock simulation needs it."""
 DEFAULT_SEGMENT_MAP: Mapping[str, AppearanceRule] = {
     "Tankvaart": AppearanceRule("natte_bulk", "mapping:ivs-segment-v1"),
     "Droge bulkvaart": AppearanceRule("droge_bulk", "mapping:ivs-segment-v1"),
@@ -41,6 +49,7 @@ def extended_trip(
     identifier: str,
     unit: str,
     mapping: Mapping[str, AppearanceRule],
+    departure_column: str = EXTENDED_DEPARTURE_COLUMN,
 ) -> TripObservation:
     """Convert one row with explicitly declared Lading units and sourced segment mapping."""
     if integer_value(row, "Aantal_Schepen") != 1:
@@ -72,6 +81,7 @@ def extended_trip(
     vessel = text_value(row, "SK_CODE").strip()
     if not vessel:
         raise ValidationError("SK_CODE must not be empty")
+    departure, departure_notes = departure_time_value(row, departure_column)
     return TripObservation(
         identifier,
         text_value(row, "UNLO_Herkomst"),
@@ -88,5 +98,6 @@ def extended_trip(
         appearance=rule.appearance if rule else "",
         appearance_source=rule.source if rule else "",
         cargo_unit_source=f"assumption:declared-Lading-unit={unit};capacity=t",
-        notes=("Aantal_Schepen=1;not-a-cost-multiplier", f"Segment={segment}"),
+        notes=("Aantal_Schepen=1;not-a-cost-multiplier", f"Segment={segment}", *departure_notes),
+        departure_time=departure,
     )

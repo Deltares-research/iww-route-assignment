@@ -1,6 +1,6 @@
 # IWW route assignment
 
-An open-source Python library for inland-waterway routing and assignment. The modelling approach draws mainly on BIVAS, with selected data-pipeline ideas from fis-crawler and optional future lock-delay coupling to OpenTNSim.
+An open-source Python library for inland-waterway routing and assignment. The modelling approach draws mainly on BIVAS, with selected data-pipeline ideas from fis-crawler and an optional lock queue simulation on OpenTNSim.
 
 ## Contents
 
@@ -12,7 +12,7 @@ An open-source Python library for inland-waterway routing and assignment. The mo
 
 ## Status
 
-Pre-alpha. The first work package implements an auditable monetary cost core and fuel-resolution policy. The second adds an independent navigability evaluator. The third adds traffic assignment: IVS trips are routed over the EuRIS network with the cost function as the route-search weight. Iterative lock assignment and unloading remain planned work.
+Pre-alpha. The first work package implements an auditable monetary cost core and fuel-resolution policy. The second adds an independent navigability evaluator. The third adds traffic assignment: IVS trips are routed over the EuRIS network with the cost function as the route-search weight. An optional lock queue simulation replays the assigned trips in time, with queues at locks and rerouting around long queues. Unloading remains planned work.
 
 [Back to contents](#contents)
 
@@ -39,8 +39,9 @@ poetry run pytest
 - Validated CSV adapters and flat audit records.
 - Traffic assignment on the EuRIS network, minimising cost or time, with reported penalties for physical limits.
 - Synthetic illustrative case and benchmark harness.
+- Optional lock queue simulation with OpenTNSim vessels, chambers with queues and forward-only rerouting (`poetry install --extras simulation`).
 
-OpenTNSim is not a core dependency.
+OpenTNSim is not a core dependency. It is installed with the `simulation` extra.
 
 [Back to contents](#contents)
 
@@ -54,6 +55,7 @@ Most used pages:
 | --- | --- |
 | [Cost module](docs/cost-module.md) | Which formulas are applied. |
 | [Traffic assignment](docs/assignment.md) | How trips are routed and priced. |
+| [Lock queue simulation](docs/lock-simulation.md) | How vessels queue for locks and reroute around long queues. |
 | [Case configuration](docs/configuration.md) | How to write a run TOML and what each key does. |
 | [Data contracts](docs/data-contracts.md) | Which CSV columns are required and what each one drives. |
 | [Enumerations](docs/enumerations.md) | Which option values exist and what each one means. |

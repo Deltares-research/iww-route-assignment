@@ -8,8 +8,24 @@ import pandas as pd
 
 from ..domain import AppearanceRule, IvsFormat, TripObservation, TripRejection, TripRejectionReason
 from ..exceptions import ValidationError
-from ._frames import integer_value, number_value, optional_text_value, require_columns, text_value
-from .ivs_extended import DEFAULT_SEGMENT_MAP, EXTENDED_COLUMNS, extended_identifier, extended_trip
+from ._frames import (
+    departure_time_value,
+    integer_value,
+    number_value,
+    optional_text_value,
+    require_columns,
+    text_value,
+)
+from .ivs_extended import (
+    DEFAULT_SEGMENT_MAP,
+    EXTENDED_COLUMNS,
+    EXTENDED_DEPARTURE_COLUMN,
+    extended_identifier,
+    extended_trip,
+)
+
+WEEKMONITOR_DEPARTURE_COLUMN = "v05_06_begindt_evenement_iso"
+"""Weekmonitor event time. It is the time at the origin (``unlo_herkomst``)."""
 
 IVS_COLUMNS = {
     "unlo_herkomst": "origin_locode",
@@ -39,8 +55,14 @@ def read_ivs_frame(
     segment_map: Mapping[str, AppearanceRule] | None = None,
     drop_export_index: bool = False,
     row_offset: int = 0,
+    departure_column: str | None = None,
 ) -> IvsReadResult:
-    """Audit malformed rows without treating unknown data as zero or repairing IDs."""
+    """Audit malformed rows without treating unknown data as zero or repairing IDs.
+
+    ``departure_column`` names the column holding the departure time. It defaults to
+    ``Eerste_Tijdstip`` for the extended format and the event time for the weekmonitor.
+    A missing or unreadable time never rejects a row. The trip then has no departure time.
+    """
     try:
         layout = IvsFormat(format)
     except ValueError as error:
@@ -73,6 +95,11 @@ def read_ivs_frame(
         mapping[key] = rule
     trips: list[TripObservation] = []
     rejected: list[TripRejection] = []
+    departure = departure_column or (
+        EXTENDED_DEPARTURE_COLUMN
+        if layout is IvsFormat.EXTENDED_2026
+        else WEEKMONITOR_DEPARTURE_COLUMN
+    )
     seen: set[str] = set()
     for position, (_, row) in enumerate(frame.iterrows(), start=row_offset):
         identifier = f"{dataset}:{position}"
@@ -94,9 +121,9 @@ def read_ivs_frame(
         seen.add(identifier)
         try:
             trip = (
-                extended_trip(row, dataset, identifier, str(cargo_weight_unit), mapping)
+                extended_trip(row, dataset, identifier, str(cargo_weight_unit), mapping, departure)
                 if layout is IvsFormat.EXTENDED_2026
-                else _weekly_trip(row, dataset, identifier)
+                else _weekly_trip(row, dataset, identifier, departure)
             )
             if indices:
                 trip = replace(trip, notes=(*trip.notes, "dropped_export_index:" + indices[0]))
@@ -148,7 +175,9 @@ def load_ivs_trips_csv(
     )
 
 
-def _weekly_trip(row: pd.Series, dataset: str, identifier: str) -> TripObservation:
+def _weekly_trip(
+    row: pd.Series, dataset: str, identifier: str, departure_column: str
+) -> TripObservation:
     loading = (
         ""
         if pd.isna(row.get("v28_beladingscode"))
@@ -162,6 +191,7 @@ def _weekly_trip(row: pd.Series, dataset: str, identifier: str) -> TripObservati
     )
     if loading == "1" and cargo not in {None, 0.0}:
         raise ValidationError("Empty loading code contradicts positive cargo weight")
+    departure, departure_notes = departure_time_value(row, departure_column)
     return TripObservation(
         identifier,
         text_value(row, "unlo_herkomst"),
@@ -178,4 +208,6 @@ def _weekly_trip(row: pd.Series, dataset: str, identifier: str) -> TripObservati
         observed_on=optional_text_value(row, "v05_06_begindt_evenement_iso"),
         vessel_rws_class=vessel,
         cargo_unit_source="preset:weekmonitor:kg-to-t;capacity=t",
+        notes=departure_notes,
+        departure_time=departure,
     )

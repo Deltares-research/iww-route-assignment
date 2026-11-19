@@ -9,7 +9,7 @@
 
 ## Purpose
 
-Use readable domain contracts with replaceable input, routing and lock-delay adapters. Keep numerical behaviour testable without private data or third-party simulation packages.
+Use readable domain contracts with replaceable input, routing and simulation adapters. Keep numerical behaviour testable without private data or third-party simulation packages.
 
 [Back to contents](#contents)
 
@@ -23,7 +23,9 @@ flowchart TD
     C --> D[Application services]
     N --> D
     D --> E[Assignment: snapping, search, repricing]
-    D --> F[Future lock-delay port]
+    E --> P[Route-simulator port]
+    P --> S[Lock queue simulation: OpenTNSim, optional]
+    S --> E
     E --> G[Result adapters]
     H[EuRIS adapter] --> E
 ```
@@ -33,14 +35,15 @@ Current packages:
 - `domain`: enums, classifications and frozen value objects, including navigability contracts;
 - `costs`: fuel-provider protocol, audited table provider and calculators;
 - `navigability`: physical-limit evaluator, arc masks and the choice-weight guard;
-- `assignment`: network contract, snapping, penalties, cost-weighted search and repricing;
+- `assignment`: network contract, snapping, lock placement on edges, penalties, cost-weighted search, repricing and the `RouteSimulator` port;
+- `simulation` (optional extra): lock chambers and queues, OpenTNSim vessels, rerouting and the `LockSimulator` that implements the port;
 - `io`: pandas CSV boundaries, the EuRIS adapter, trip reading for assignment, notebook preparation and result writers.
 
 [Back to contents](#contents)
 
 ## Dependency rules
 
-The core (`domain`, `costs`, `navigability`) does not import pandas, file readers, NetworkX, SciPy or OpenTNSim. The `assignment` layer may use NumPy, SciPy, pandas, GeoPandas and Shapely, but reads no files. The I/O layer reads and writes files and may import pandas and NetworkX. OpenTNSim will enter through a protocol in a later work package.
+The core (`domain`, `costs`, `navigability`) does not import pandas, file readers, NetworkX, SciPy or OpenTNSim. The `assignment` layer may use NumPy, SciPy, pandas, GeoPandas and Shapely, but reads no files. The I/O layer reads and writes files and may import pandas and NetworkX. OpenTNSim, simpy and packer2d are imported only by the optional `simulation` package, which depends on `assignment` and `io` and never the other way round. The assignment reaches it through the `RouteSimulator` protocol, so another simulator can replace it. See [Lock queue simulation](lock-simulation.md).
 
 `navigability` and `costs` do not import each other. The assignment combines them. Navigability findings and route preferences become penalty hours in `relaxation_penalty_time_h`, and the cost function prices that time. Every penalty is reported with the limit behind it. `restrict_choice_weights` remains available for a strict analysis that forbids blocked arcs.
 

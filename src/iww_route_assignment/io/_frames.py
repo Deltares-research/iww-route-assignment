@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from math import isfinite
 from pathlib import Path
 from typing import Any
@@ -96,3 +97,26 @@ def _to_float(value: Any, column: str) -> float:
     if not isfinite(number):
         raise ValidationError(f"Column {column!r} must be finite")
     return number
+
+
+SAS_DATETIME_FORMAT = "%d%b%Y:%H:%M:%S"
+
+
+def departure_time_value(row: pd.Series, column: str) -> tuple[datetime | None, tuple[str, ...]]:
+    """Read an optional departure time and return it with audit notes.
+
+    Accepts SAS (``02JAN2023:13:45:00``) and ISO text. A missing column or value gives None
+    without a note. A value that cannot be read gives None and a note. A value without a time
+    of day is read as midnight and noted, because many trips then share one start time.
+    """
+    text = optional_text_value(row, column).strip()
+    if not text:
+        return None, ()
+    parsed = pd.to_datetime(text, format=SAS_DATETIME_FORMAT, errors="coerce")
+    if pd.isna(parsed):
+        parsed = pd.to_datetime(text, errors="coerce")
+    if pd.isna(parsed):
+        return None, (f"departure_time_unreadable:{column}",)
+    moment = parsed.to_pydatetime().replace(tzinfo=None)
+    date_only = ":" not in text
+    return moment, (f"departure_time_date_only:{column}",) if date_only else ()

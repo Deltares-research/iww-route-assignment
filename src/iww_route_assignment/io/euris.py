@@ -90,15 +90,26 @@ class EurisLimitRules:
 
     ``lock_passage_time_h`` is reported time per lock on a section, added to travel time.
     ``fairway_length`` adds the section ``mlengthcm`` as a length limit. It is off by default
-    because the length check has so far applied to locks only.
+    because the length check has so far applied to locks only. ``weir_canal_pattern`` is a
+    case-insensitive regex on the edge name and water name. A match marks the edge as a weir
+    canal: a vessel cannot pass the weir, so the route over it is penalised and the lock beside
+    it is used. ``None`` switches this off.
     """
 
     lock_passage_time_h: float = 0.5
     fairway_length: bool = False
+    weir_canal_pattern: str | None = r"stuwkanaal"
 
     def __post_init__(self) -> None:
         if not isfinite(self.lock_passage_time_h) or self.lock_passage_time_h < 0:
             raise ValidationError("lock_passage_time_h must be finite and non-negative")
+        if self.weir_canal_pattern is not None:
+            try:
+                re.compile(self.weir_canal_pattern)
+            except re.error as error:
+                raise ValidationError(
+                    f"weir_canal_pattern is not a valid regex: {error}"
+                ) from error
 
 
 @dataclass(frozen=True, slots=True)
@@ -317,6 +328,9 @@ def build_euris_inputs(
             raise ValidationError(f"Node {node!r} has no geometry")
         node_ids.append(str(node))
         coordinates.append((point.x, point.y))
+    weir_pattern = (
+        re.compile(rules.weir_canal_pattern, re.IGNORECASE) if rules.weir_canal_pattern else None
+    )
     edges, lines, restrictions = [], [], []
     missing_length = 0
     for u, v, data in graph.edges(data=True):
@@ -344,6 +358,10 @@ def build_euris_inputs(
                 waterway_cemt_class=_cemt(data, skipped),
                 lock_service_time_h=rules.lock_passage_time_h * len(lock_ids),
                 lock_count=len(lock_ids),
+                weir_canal=bool(
+                    weir_pattern
+                    and weir_pattern.search(f"{_text(data.get('name'))} | {water_name}")
+                ),
             )
         )
         line = data.get("geometry")
@@ -366,6 +384,7 @@ def build_euris_inputs(
         "nodes": len(node_ids),
         "edges_without_code": sum(1 for e in edges if not e.section_code),
         "edges_with_locks": sum(1 for e in edges if e.lock_count),
+        "weir_canal_edges": sum(1 for e in edges if e.weir_canal),
         "locks": len(structures.locks),
         "bridges": len(structures.bridges),
         "restrictions_by_type": dict(sorted(by_type.items())),
@@ -373,6 +392,7 @@ def build_euris_inputs(
         "rules": {
             "lock_passage_time_h": rules.lock_passage_time_h,
             "fairway_length": rules.fairway_length,
+            "weir_canal_pattern": rules.weir_canal_pattern,
         },
     }
     return EurisInputs(network, tuple(restrictions), MappingProxyType(report))

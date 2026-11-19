@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
@@ -23,8 +23,9 @@ from ..domain.navigability import ArcRestriction
 from ..navigability import RestrictionIndex, build_restriction_index
 from .network import AssignmentNetwork
 from .pricing import CostCoverageReport, CostInputs, EdgeTravel
-from .router import EDGE_COLUMNS, PENALTY_COLUMNS, RoutingContext, RoutingOutput, route_trips
+from .router import PENALTY_COLUMNS, RoutingContext, RoutingOutput, route_trips
 from .settings import AssignmentSettings, NavigabilityPenalties, RoutePreferences
+from .simulation_port import RouteSimulator
 from .snapping import NETWORK_CRS, build_snap_index
 from .trips import TRIP_PENDING, AssignmentTrips, VesselCatalogue, prepare_trips
 
@@ -48,7 +49,8 @@ class AssignmentResult:
     ``trips`` has one row per valid trip. ``rejections`` lists source rows that were not
     valid trips, with a reason. ``trip_edges`` has one row per traversed edge of a
     successful trip. ``intensity`` sums traffic per used edge. ``penalised`` lists every
-    edge and limit that added a penalty, with the trips that met it.
+    edge and limit that added a penalty, with the trips that met it. ``tables`` holds extra
+    tables from a simulator, such as the lock passages.
     """
 
     trips: pd.DataFrame
@@ -58,6 +60,7 @@ class AssignmentResult:
     coverage: CostCoverageReport
     summary: Mapping[str, Any]
     rejections: tuple[TripRejection, ...] = ()
+    tables: Mapping[str, pd.DataFrame] = field(default_factory=dict)
 
 
 def edge_travel(network: AssignmentNetwork) -> EdgeTravel:
@@ -101,7 +104,7 @@ def _trip_edges(
         name: (np.concatenate(parts) if parts else np.array([], dtype=object))
         for name, parts in output.edges.items()
     }
-    frame = pd.DataFrame(columns, columns=list(EDGE_COLUMNS))
+    frame = pd.DataFrame(columns, columns=list(output.edges))
     info = trip_table.set_index("voyage_index")[
         ["trip_id", "vessel_rws_class", "cargo_t", "is_loaded"]
     ]
@@ -117,6 +120,11 @@ def _trip_edges(
 
 
 def _intensity(trip_edges: pd.DataFrame, edges: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    simulated = {
+        name: (name, "sum")
+        for name in ("lock_waiting_h", "lock_service_h")
+        if name in trip_edges.columns
+    }
     summed = (
         trip_edges.assign(empty=~trip_edges["is_loaded"].astype(bool))
         .groupby("edge_index")
@@ -129,6 +137,7 @@ def _intensity(trip_edges: pd.DataFrame, edges: gpd.GeoDataFrame) -> gpd.GeoData
             reported_cost_eur=("reported_cost_eur", "sum"),
             choice_cost_eur=("choice_cost_eur", "sum"),
             fuel_l=("fuel_l", "sum"),
+            **simulated,
         )
     )
     return edges.merge(summed, left_on="edge_index", right_index=True, how="inner")
@@ -160,6 +169,7 @@ def assign_traffic(
     settings: AssignmentSettings | None = None,
     penalties: NavigabilityPenalties | None = None,
     preferences: RoutePreferences | None = None,
+    simulator: RouteSimulator | None = None,
 ) -> AssignmentResult:
     """Route every trip and report its time, fuel and cost from the cost function.
 
@@ -168,6 +178,10 @@ def assign_traffic(
        ``settings.metric``. Penalties from limits and preferences steer the search.
     3. Reprice each chosen route with the exact load. Fixed cost is added once per trip.
     4. Sum traffic, cost and penalties per edge.
+
+    With a ``simulator`` the routes of step 2 are replayed in time, for example with lock
+    queues. The simulator returns the routes that were sailed, repriced with the time spent
+    waiting, and extra tables. Without one, the result is exactly the free-flow assignment.
     """
     settings = settings or AssignmentSettings()
     penalties = penalties or NavigabilityPenalties()
@@ -197,6 +211,11 @@ def assign_traffic(
         preferences,
     )
     output = route_trips(context, pending)
+    extra_tables: Mapping[str, pd.DataFrame] = {}
+    simulation_summary: Mapping[str, Any] = {}
+    if simulator is not None:
+        outcome = simulator.simulate(context, pending, output)
+        output, extra_tables, simulation_summary = outcome.output, outcome.tables, outcome.summary
 
     routed = pd.DataFrame.from_records(output.trips)
     if routed.empty:
@@ -224,6 +243,8 @@ def assign_traffic(
         "trip_rejections": len(trips.rejections),
         "excluded_duplicate_rows": trips.excluded_duplicate_rows,
     }
+    if simulator is not None:
+        summary["simulation"] = dict(simulation_summary)
     logger.info("Assignment finished: %s", summary["status_counts"])
     return AssignmentResult(
         trip_table,
@@ -233,4 +254,5 @@ def assign_traffic(
         prepared.coverage,
         MappingProxyType(summary),
         trips.rejections,
+        MappingProxyType(dict(extra_tables)),
     )

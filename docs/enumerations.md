@@ -299,6 +299,7 @@ Both report the full cost of the chosen route.
 | `undetermined` | physical limit | A limit exists but the vessel value is unknown. |
 | `cemt` | preference | The vessel CEMT class is above the waterway class. |
 | `sea` | preference | The water name is a sea name. |
+| `weir` | preference | The edge is a weir canal. Vessels cannot pass a weir and use the lock beside it. |
 
 Penalty hours are set in `NavigabilityPenalties` and `RoutePreferences`. See [Traffic assignment](assignment.md#penalties).
 

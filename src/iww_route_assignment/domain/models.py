@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from math import isfinite
 
 from ..exceptions import ValidationError
@@ -383,6 +384,8 @@ class TripObservation:
     appearance_source: str = ""
     cargo_unit_source: str = ""
     notes: tuple[str, ...] = ()
+    departure_time: datetime | None = None
+    """Time the trip leaves its origin, naive local time. None when the source has none."""
 
     def __post_init__(self) -> None:
         for name in ("source_row_id", "origin_locode", "destination_locode", "source_dataset"):

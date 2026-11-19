@@ -157,6 +157,16 @@ def penalty_profile(
                     StructureType.WATERWAY,
                 )
             )
+        if edge.weir_canal:
+            found.append(
+                PenaltyDetail(
+                    PenaltyType.WEIR,
+                    preferences.weir_h,
+                    "preference:weir-canal-not-navigable",
+                    edge.section_code or edge.arc_id,
+                    StructureType.WEIR,
+                )
+            )
         if found:
             details[index] = tuple(found)
             for detail in found:

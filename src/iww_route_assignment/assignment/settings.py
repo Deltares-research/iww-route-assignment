@@ -96,15 +96,19 @@ class RoutePreferences:
     """Route-choice penalty hours that are not physical limits.
 
     ``cemt_h`` applies when the vessel CEMT class is above the waterway class. ``sea_h``
-    applies on arcs whose water name is in ``sea_water_names``.
+    applies on arcs whose water name is in ``sea_water_names``. ``weir_h`` applies on arcs that
+    pass a weir (``NetworkEdge.weir_canal``): vessels use the lock beside it, so a route over the
+    weir is avoided unless there is no other way.
     """
 
     cemt_h: float = 1000.0
     sea_h: float = 100000.0
+    weir_h: float = 1000.0
     sea_water_names: frozenset[str] = DEFAULT_SEA_WATER_NAMES
 
     def __post_init__(self) -> None:
         _non_negative("cemt_h", self.cemt_h)
         _non_negative("sea_h", self.sea_h)
+        _non_negative("weir_h", self.weir_h)
         names = frozenset(name.strip().casefold() for name in self.sea_water_names)
         object.__setattr__(self, "sea_water_names", names)

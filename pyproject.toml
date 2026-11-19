@@ -31,6 +31,11 @@ dependencies = [
 
 [project.optional-dependencies]
 notebooks = ["jupyter>=1.1.1"]
+simulation = [
+    "opentnsim>=2.2.2",
+    "packer2d>=1.0.0b2",
+    "simpy>=4.1",
+]
 dev = [
     "build>=1.2",
     "hypothesis>=6.130",
@@ -78,3 +83,12 @@ mypy_path = "src"
 [[tool.mypy.overrides]]
 module = ["geopandas.*", "networkx.*", "scipy.*", "shapely.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["opentnsim.*", "openclsim.*", "packer2d.*", "simpy.*"]
+ignore_missing_imports = true
+follow_imports = "skip"
+
+[[tool.mypy.overrides]]
+module = ["iww_route_assignment.simulation.*"]
+disallow_subclassing_any = false

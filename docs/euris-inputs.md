@@ -23,7 +23,7 @@ The assignment network and its physical limits come from EuRIS data prepared by 
 | `edges.geoparquet` | `dropins-euris-detailed` | Links each section (`section_id`) to its locks (`lock_id`) and bridges (`bridge_id`) |
 | `chambers.geoparquet` | `dropins-euris-detailed` | Lock chamber width, length and draught |
 | `openings.geoparquet` | `dropins-euris-detailed` | Bridge opening width, height and whether it opens |
-| `locks.geoparquet`, `bridges.geoparquet` | `dropins-euris-detailed` | Names only, optional |
+| `locks.geoparquet`, `bridges.geoparquet` | `dropins-euris-detailed` | Names only, optional. For the [lock queue simulation](lock-simulation.md) `locks.geoparquet` is required: it gives the lock point |
 
 Only load a pickle file from a trusted source.
 
@@ -39,6 +39,7 @@ Only load a pickle file from a trusted source.
 | `speed_km_per_h` | `maxspeed_up`, `maxspeed_down`, `maxspeed`, `calspeed_up`, `calspeed_down` | first positive value, at least 1 km/h, else 10 km/h |
 | `waterway_cemt_class` | `cemt` | class `0` or an unknown label means no class |
 | `water_name` | `water_name`, else `ww_name` | used for the sea preference |
+| `weir_canal` | `name`, `water_name` | case-insensitive match of `EurisLimitRules.weir_canal_pattern` (default `stuwkanaal`). The edge is penalised by `RoutePreferences.weir_h`; `None` switches it off |
 | `lock_service_time_h` | linked locks | `EurisLimitRules.lock_passage_time_h` per lock, default 0.5 h |
 | node coordinates | node `geometry` | EPSG:4326 points. Required |
 | edge line | edge `geometry` | used for snapping. A straight line when missing |
@@ -61,6 +62,8 @@ Each arc gets up to one limit record per structure. A zero or missing value is n
 | Bridge | air draught | opening `dim_height`, else `cl_height`, else `mheightcmc` | m, cm, cm | highest opening. None if any opening is operable |
 
 A lock linked to a section but without chamber data still adds passage time. It has no limits.
+
+The lock queue simulation reads the same chamber rows for their size, the polygon (when a size is missing) and `otimemin`, the average operation time in minutes. See [Lock queue simulation](lock-simulation.md#inputs).
 
 [Back to contents](#contents)
 

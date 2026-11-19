@@ -26,6 +26,7 @@ Every document in the repository is listed here. If a page is not in this table,
 | Navigability | [`docs/navigability.md`](navigability.md) | Which physical limits are checked and how they become route-choice penalties. |
 | Traffic assignment | [`docs/assignment.md`](assignment.md) | How trips are routed, how the cost function chooses the route and what each output holds. |
 | EuRIS inputs | [`docs/euris-inputs.md`](euris-inputs.md) | Which EuRIS files and columns build the network and its limits. |
+| Lock queue simulation | [`docs/lock-simulation.md`](lock-simulation.md) | How vessels queue for locks, how they reroute around long queues and what the extra outputs hold. |
 | Case configuration | [`docs/configuration.md`](configuration.md) | How do I write a run TOML and what does each key do. |
 | Data contracts | [`docs/data-contracts.md`](data-contracts.md) | Which columns are required and what does each one drive. |
 | Enumerations | [`docs/enumerations.md`](enumerations.md) | Which values are allowed and what does each value mean. |
@@ -43,6 +44,7 @@ Every document in the repository is listed here. If a page is not in this table,
 | --- | --- |
 | Run a first calculation | [Examples](examples.md#synthetic-repository-example) |
 | Assign trips to the network | [Traffic assignment](assignment.md#running-it) |
+| Simulate queues at locks | [Lock queue simulation](lock-simulation.md#running-it) |
 | Choose a route-search metric or penalty | [Assignment settings](assignment.md#settings) and [penalties](assignment.md#penalties) |
 | Understand a trip status | [Trip status](enumerations.md#trip-status) |
 | Set up a case of my own | [Case configuration](configuration.md) |
@@ -64,7 +66,7 @@ flowchart LR
     A[Cost function] --> C[Independent navigability evaluator]
     A --> B[Cost-minimising routing]
     C --> B
-    B --> D[OpenTNSim adapter]
+    B --> D[OpenTNSim lock queue simulation]
     D --> E[Scalability evidence]
     E --> F[Capability review]
     F --> G[Unloading]

@@ -15,7 +15,7 @@ Python 3.12 and 3.13 are supported.
 poetry install --extras dev
 ```
 
-The `dev` optional dependency set contains test, coverage, lint, type and build tools.
+The `dev` optional dependency set contains test, coverage, lint, type and build tools. The lock simulation needs the `simulation` extra as well (`poetry install --extras "dev simulation"`). Without it, the simulation tests are skipped.
 
 [Back to contents](#contents)
 

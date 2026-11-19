@@ -21,6 +21,7 @@ from .enums import (
     TripRejectionReason,
     TripStatus,
 )
+from .locks import DEFAULT_OPERATION_TIME_MIN, ChamberSpec, LockComplex
 from .models import (
     AppearanceRule,
     ArcCostBreakdown,
@@ -49,6 +50,9 @@ from .navigability import (
 )
 
 __all__ = [
+    "DEFAULT_OPERATION_TIME_MIN",
+    "ChamberSpec",
+    "LockComplex",
     "ArcNavigability",
     "ArcRestriction",
     "NavigabilityFinding",

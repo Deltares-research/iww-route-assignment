@@ -135,6 +135,7 @@ The external illustrative runner documents its request CSV in `runs/20260814_tes
 | `nstr_nw` | `cargo_code` | Leading digit is the NSTR chapter used for the appearance mapping. |
 | `v28_beladingscode` | `loading_code` | Retained for auditing. Value `1` marks an empty trip. |
 | `v05_06_begindt_evenement_iso` | `observed_on` | Retained for auditing. |
+| `v05_06_begindt_evenement_iso` (weekmonitor), `Eerste_Tijdstip` (extended) | `departure_time` | Naive local time at the origin, or at the first counting point. Optional. Only the [lock queue simulation](lock-simulation.md) uses it |
 
 Derivation rules, each recorded in a source column of the request:
 
@@ -151,7 +152,7 @@ Row identifiers are generated from the positional row number of the export. They
 
 Select `extended_2026` explicitly. Identity is `dataset:Jaar:Pseudo_ReisID`, preserving the original ID as text and rejecting duplicates. `SK_CODE`, `UNLO_Herkomst`, `UNLO_Bestemming` and `Laadvermogen` supply class, OD and capacity in tonnes. Declare `Lading` units as `t` or `kg`; the declaration is recorded as an assumption, not verification. `Aantal_Schepen` must be 1 and does not multiply costs.
 
-`Tankvaart`, `Droge bulkvaart` and `Containervaart` map to `natte_bulk`, `droge_bulk` and `container`. Unknown segments are rejected or require a sourced mapping via `read_ivs_frame`. Missing TEU/NSTR stays unknown. Conflicting event-time columns and contradictory empty-loading codes are rejected. One raw export index may be dropped only with explicit permission. The strict adapter raises on rejected rows; `read_ivs_frame` returns audited rejections.
+`Tankvaart`, `Droge bulkvaart` and `Containervaart` map to `natte_bulk`, `droge_bulk` and `container`. Unknown segments are rejected or require a sourced mapping via `read_ivs_frame`. Missing TEU/NSTR stays unknown. Conflicting event-time columns and contradictory empty-loading codes are rejected. `Eerste_Tijdstip`, when present, becomes `departure_time`. A missing or unreadable value never rejects a row. One raw export index may be dropped only with explicit permission. The strict adapter raises on rejected rows; `read_ivs_frame` returns audited rejections.
 
 ### Supplied routes
 

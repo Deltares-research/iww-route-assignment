@@ -7,8 +7,9 @@
 3. [Illustrative external case](#illustrative-external-case)
 4. [Navigability example](#navigability-example)
 5. [Assignment example](#assignment-example)
-6. [Verification suite](#verification-suite)
-7. [Benchmark](#benchmark)
+6. [Lock queue example](#lock-queue-example)
+7. [Verification suite](#verification-suite)
+8. [Benchmark](#benchmark)
 
 ## Synthetic repository example
 
@@ -69,6 +70,16 @@ poetry run python examples/assign_synthetic_trips.py
 ```
 
 Three trips sail from A to D on a four-node network built in code. The settings at the top of the file choose the metric, the lock width and the beam penalty. By cost the trips take A-B-D. By time, or with a lock narrower than the vessel, they take A-C-D. All tables are made up and labelled as such. `tests/assignment/test_example.py` keeps the example working. See [Traffic assignment](assignment.md).
+
+[Back to contents](#contents)
+
+## Lock queue example
+
+```powershell
+poetry run python examples/simulate_lock_queues.py
+```
+
+The example needs the `simulation` extra. It extends the assignment example: twelve trips leave A every half hour and the lock between B and D has one chamber that takes one vessel per crossing. The first seven vessels queue, the later ones see the queue and take A-C-D. Set `REROUTE = False` at the top to see the full queue. See [Lock queue simulation](lock-simulation.md).
 
 [Back to contents](#contents)
 

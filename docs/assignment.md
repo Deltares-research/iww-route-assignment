@@ -87,7 +87,7 @@ Terms used here:
 
 ## Penalties
 
-Two kinds of penalty add hours to the route-choice weight. Each is set in a settings object.
+Penalties add hours to the route-choice weight. Each is set in a settings object.
 
 | Kind | Settings | Applies when | Default |
 | --- | --- | --- | --- |
@@ -99,6 +99,7 @@ Two kinds of penalty add hours to the route-choice weight. Each is set in a sett
 | Undetermined | `NavigabilityPenalties.undetermined_h` | a limit exists but the vessel value is unknown | 0 h, reported only |
 | CEMT | `RoutePreferences.cemt_h` | the vessel CEMT class is above the edge class | 1000 h |
 | Sea | `RoutePreferences.sea_h` | the water name is in `sea_water_names` | 100000 h |
+| Weir canal | `RoutePreferences.weir_h` | the edge passes a weir (a `Stuwkanaal`): vessels use the lock beside it | 1000 h |
 
 Rules:
 
@@ -143,7 +144,9 @@ Output names keep the older word voyage: `voyages.parquet` has one row per trip,
 
 `total_cost_eur` equals `choice_total_cost_eur` and includes penalties. Use `reported_total_cost_eur` for the cost a vessel actually incurs.
 
-**Time period.** The assignment does not use time. Every trip in the input file is routed once, whatever its date, and the outputs add up all of them. A run therefore covers exactly the period of its input file. To assign one period, filter the input rows first, for example on `Eerste_Tijdstip`, the time at the first counting point. `Begintijd_evenement` is not a start time: in the 2026 register it equals the last counting-point time in 98.1 % of rows.
+**Time period.** The free-flow assignment does not use time. Every trip in the input file is routed once, whatever its date, and the outputs add up all of them. A run therefore covers exactly the period of its input file. To assign one period, filter the input rows first, for example on `Eerste_Tijdstip`, the time at the first counting point. `Begintijd_evenement` is not a start time: in the 2026 register it equals the last counting-point time in 98.1 % of rows. The optional [lock queue simulation](lock-simulation.md) does use time: it reads the departure time of each trip (`Eerste_Tijdstip` for the extended IVS, the event time at the origin for the weekmonitor) and adds `departure_time` to `voyages.parquet`.
+
+With a `simulator` the routes are replayed in time and the result gains lock tables and columns. See [Lock queue simulation](lock-simulation.md#outputs).
 
 Trips with `vessel_fail`, `cost_fail` or `snap_fail` have no route. They are in `voyages.parquet` with a reason but absent from `voyage_edges.parquet` and the intensity tables, so intensity counts routed trips only.
 
@@ -208,7 +211,7 @@ The real-data run script lives in the external IWW scripts folder. Guard it with
 ## Assumptions and open points
 
 1. Speed per edge is the first positive EuRIS speed attribute, at least 1 km/h, else 10 km/h. It does not depend on the vessel.
-2. Lock passage time is 0.5 h per lock on a section. No lock waiting is modelled.
+2. Lock passage time is 0.5 h per lock on a section. No lock waiting is modelled, unless the optional [lock queue simulation](lock-simulation.md) is used.
 3. The network is undirected. Direction-dependent speeds and one-way rules are not modelled.
 4. The beam rule distinguishes Dutch structures (flat penalty) from others (per metre), using the first two letters of the structure id.
 5. Draught uses the full loaded draught for any loaded trip.
