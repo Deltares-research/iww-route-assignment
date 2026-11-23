@@ -30,7 +30,7 @@ The templates are not validated fixtures. Synthetic, licence-safe test data live
 | File | Consumed by | Purpose |
 | --- | --- | --- |
 | `arc_cost_requests.csv` | `run_cost_case.py`, `[inputs].arcs` | One row per arc to cost. |
-| `fuel_observations.csv` | `load_fuel_observations_csv` | Litres per hour by vessel and waterway, with three loading anchors. No goods/profile column. |
+| `fuel_observations.csv` | `load_fuel_observations_csv` | Litres per km by vessel and waterway, with three loading anchors. No goods/profile column. |
 | `vessel_references.csv` | `load_vessel_references_csv` | Vessel attributes for deterministic proxy selection. |
 | `cost_rates.csv` | `load_cost_rates_csv` | BIVAS rates per appearance and vessel class. |
 | `ivs_trips.csv` | `load_ivs_trips_csv` | IVS trip-register export used to derive arc requests. |
@@ -46,7 +46,7 @@ The templates are not validated fixtures. Synthetic, licence-safe test data live
 
 ## Cost-run schemas
 
-The first four files are the four `[inputs]` keys of a [case configuration](../docs/configuration.md#inputs-section). Together they are sufficient to produce costs; no other file is read during a cost run.
+The first four files are the four tables a cost calculation reads: arc requests, fuel observations, vessel references and cost rates. Together they are enough to produce costs. No other file is read. In a traffic assignment the arc requests come from the network, and `build_shared_inputs` writes the other three. See [Workflow](../docs/workflow.md#preparing-the-reference-tables).
 
 ```mermaid
 flowchart LR

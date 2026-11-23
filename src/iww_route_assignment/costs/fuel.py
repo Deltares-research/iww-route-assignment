@@ -45,7 +45,7 @@ class FuelConsumptionProvider(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class _LoadingResult:
-    rate_l_per_h: float
+    rate_l_per_km: float
     raw_ratio: float | None
     applied_ratio: float
     lower_category: LoadingCategory
@@ -56,7 +56,7 @@ class _LoadingResult:
 
 @dataclass(frozen=True, slots=True)
 class _WaterwayResult:
-    rate_l_per_h: float
+    rate_l_per_km: float
     selected_class: str
     lower_class: str
     upper_class: str
@@ -157,7 +157,7 @@ class TableFuelConsumptionProvider:
             )
 
         return ResolvedFuelRate(
-            fuel_rate_l_per_h=waterway.rate_l_per_h,
+            fuel_rate_l_per_km=waterway.rate_l_per_km,
             requested_vessel_rws_class=requested_vessel,
             selected_vessel_rws_class=selected_vessel,
             requested_waterway_cemt_class=requested_waterway,
@@ -216,7 +216,7 @@ class TableFuelConsumptionProvider:
                 else FuelResolutionMethod.OBSERVED
             )
             return _WaterwayResult(
-                rate_l_per_h=loading.rate_l_per_h,
+                rate_l_per_km=loading.rate_l_per_km,
                 selected_class=requested_waterway,
                 lower_class=requested_waterway,
                 upper_class=requested_waterway,
@@ -238,11 +238,11 @@ class TableFuelConsumptionProvider:
             fraction = (target_rank - lower_rank) / (upper_rank - lower_rank)
             lower_loading = self._resolve_loading(lower, loading_ratio, loading_category)
             upper_loading = self._resolve_loading(upper, loading_ratio, loading_category)
-            rate = lower_loading.rate_l_per_h + fraction * (
-                upper_loading.rate_l_per_h - lower_loading.rate_l_per_h
+            rate = lower_loading.rate_l_per_km + fraction * (
+                upper_loading.rate_l_per_km - lower_loading.rate_l_per_km
             )
             return _WaterwayResult(
-                rate_l_per_h=rate,
+                rate_l_per_km=rate,
                 selected_class=requested_waterway,
                 lower_class=lower.waterway_cemt_class,
                 upper_class=upper.waterway_cemt_class,
@@ -272,7 +272,7 @@ class TableFuelConsumptionProvider:
         )
         loading = self._resolve_loading(nearest, loading_ratio, loading_category)
         return _WaterwayResult(
-            rate_l_per_h=loading.rate_l_per_h,
+            rate_l_per_km=loading.rate_l_per_km,
             selected_class=nearest.waterway_cemt_class,
             lower_class=nearest.waterway_cemt_class,
             upper_class=nearest.waterway_cemt_class,
@@ -296,7 +296,7 @@ class TableFuelConsumptionProvider:
         if loading_category is not None:
             category = LoadingCategory(loading_category)
             return _LoadingResult(
-                rate_l_per_h=observation.rate_for(category),
+                rate_l_per_km=observation.rate_for(category),
                 raw_ratio=None,
                 applied_ratio=self._loading_anchors.value_for(category),
                 lower_category=category,
@@ -319,7 +319,7 @@ class TableFuelConsumptionProvider:
         for category, anchor in anchors:
             if isclose(applied, anchor):
                 return _LoadingResult(
-                    rate_l_per_h=observation.rate_for(category),
+                    rate_l_per_km=observation.rate_for(category),
                     raw_ratio=loading_ratio,
                     applied_ratio=applied,
                     lower_category=category,
@@ -338,7 +338,7 @@ class TableFuelConsumptionProvider:
         lower_rate = observation.rate_for(lower_category)
         upper_rate = observation.rate_for(upper_category)
         return _LoadingResult(
-            rate_l_per_h=lower_rate + fraction * (upper_rate - lower_rate),
+            rate_l_per_km=lower_rate + fraction * (upper_rate - lower_rate),
             raw_ratio=loading_ratio,
             applied_ratio=applied,
             lower_category=lower_category,
