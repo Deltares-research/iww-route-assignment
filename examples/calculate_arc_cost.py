@@ -29,9 +29,10 @@ def main() -> None:
                 source_row_id="example:M1:I",
                 vessel_rws_class="M1",
                 waterway_cemt_class="I",
-                diesel_light_l_per_h=37.0,
-                diesel_medium_l_per_h=50.0,
-                diesel_heavy_l_per_h=58.0,
+                # Litres per km: 37, 50 and 58 MJ/km divided by 36 MJ per litre of diesel.
+                diesel_light_l_per_km=1.03,
+                diesel_medium_l_per_km=1.39,
+                diesel_heavy_l_per_km=1.61,
                 source_dataset="synthetic-example",
             ),
         ),

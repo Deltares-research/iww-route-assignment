@@ -5,8 +5,10 @@ Run in the IDE: change a setting below and press Run. Two routes lead from A to 
 - A-B-D: 50 km at 11 km/h plus one lock of 0.5 h, so 5.05 h;
 - A-C-D: 80 km at 16.5 km/h, so 4.85 h.
 
-By time, A-C-D wins. By cost, A-B-D wins, because 30 km less distance cost outweighs
-0.2 h more time. Make the lock narrower than the vessel and the penalty sends it via C.
+By time, A-C-D wins. By cost, A-B-D wins, because 30 km less distance cost and fuel
+outweighs 0.2 h more time. Make the lock narrower than the vessel and the penalty sends it via C.
+
+Fuel is in litres per km: 9 empty, 12 half loaded and 15 full for this made-up vessel.
 
 Every table below is made up for this example. Real runs read the shared reference tables.
 """
@@ -122,7 +124,7 @@ def example_cost_inputs(scenario: ScenarioCostParameters) -> tuple[CostInputs, V
         for appearance in ("droge_bulk", "natte_bulk")
     )
     fuel = TableFuelConsumptionProvider(
-        [FuelConsumptionObservation("m8-vb", "M8", "Vb", 90.0, 120.0, 150.0, PLACEHOLDER)],
+        [FuelConsumptionObservation("m8-vb", "M8", "Vb", 9.0, 12.0, 15.0, PLACEHOLDER)],
         [m8],
     )
     return CostInputs(rates, fuel, scenario), VesselCatalogue((m8,))
