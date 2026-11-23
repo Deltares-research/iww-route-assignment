@@ -98,9 +98,9 @@ def test_fuel_observation_normalises_keys() -> None:
         source_row_id="row",
         vessel_rws_class="BII-6B",
         waterway_cemt_class="VIC",
-        diesel_light_l_per_h=1.0,
-        diesel_medium_l_per_h=2.0,
-        diesel_heavy_l_per_h=3.0,
+        diesel_light_l_per_km=1.0,
+        diesel_medium_l_per_km=2.0,
+        diesel_heavy_l_per_km=3.0,
         source_dataset="test",
     )
     assert observation.vessel_rws_class == "BII-6b"

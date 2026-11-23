@@ -96,9 +96,9 @@ class FuelConsumptionObservation:
     source_row_id: str
     vessel_rws_class: str
     waterway_cemt_class: str
-    diesel_light_l_per_h: float
-    diesel_medium_l_per_h: float
-    diesel_heavy_l_per_h: float
+    diesel_light_l_per_km: float
+    diesel_medium_l_per_km: float
+    diesel_heavy_l_per_km: float
     source_dataset: str
 
     def __post_init__(self) -> None:
@@ -113,18 +113,18 @@ class FuelConsumptionObservation:
             self, "source_dataset", _required_text("source_dataset", self.source_dataset)
         )
         for name in (
-            "diesel_light_l_per_h",
-            "diesel_medium_l_per_h",
-            "diesel_heavy_l_per_h",
+            "diesel_light_l_per_km",
+            "diesel_medium_l_per_km",
+            "diesel_heavy_l_per_km",
         ):
             _finite_non_negative(name, getattr(self, name))
 
     def rate_for(self, category: LoadingCategory) -> float:
         """Return the observed rate for a loading category."""
         rates = {
-            LoadingCategory.LIGHT: self.diesel_light_l_per_h,
-            LoadingCategory.MEDIUM: self.diesel_medium_l_per_h,
-            LoadingCategory.HEAVY: self.diesel_heavy_l_per_h,
+            LoadingCategory.LIGHT: self.diesel_light_l_per_km,
+            LoadingCategory.MEDIUM: self.diesel_medium_l_per_km,
+            LoadingCategory.HEAVY: self.diesel_heavy_l_per_km,
         }
         return rates[LoadingCategory(category)]
 
@@ -227,7 +227,7 @@ class FuelProxyWeights:
 class ResolvedFuelRate:
     """Fuel rate plus a complete derivation record."""
 
-    fuel_rate_l_per_h: float
+    fuel_rate_l_per_km: float
     requested_vessel_rws_class: str
     selected_vessel_rws_class: str
     requested_waterway_cemt_class: str
@@ -250,7 +250,7 @@ class ResolvedFuelRate:
     notes: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
-        _finite_non_negative("fuel_rate_l_per_h", self.fuel_rate_l_per_h)
+        _finite_non_negative("fuel_rate_l_per_km", self.fuel_rate_l_per_km)
         if self.raw_loading_ratio is not None and not isfinite(self.raw_loading_ratio):
             raise ValidationError("raw_loading_ratio must be finite when supplied")
         if not 0 <= self.applied_loading_ratio <= 1:
