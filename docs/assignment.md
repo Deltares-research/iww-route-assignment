@@ -33,6 +33,8 @@
 | Cost rates, fuel, scenario | `CostInputs` | `io.load_cost_rates_csv`, `io.load_fuel_provider` |
 | Vessel dimensions | `VesselCatalogue` | `io.load_vessel_references_csv`, `io.load_navigability_vessels_csv` |
 
+`io.run_assignment` builds all five from an `AssignmentPaths` and an `AssignmentConfig`. See [Workflow](workflow.md). The source name of every column is in [Data lineage](data-lineage.md).
+
 Trips are read with the same IVS reader as the cost case, so the cargo unit must be declared and repeated trip ids must be handled explicitly. The assignment adds one segment rule: `Overig` maps to the appearance `overig`.
 
 A vessel class must be in the vessel references. Labels such as `B04` and `BO4` are different classes unless `VesselCatalogue(class_aliases=...)` states otherwise. `io.IVS_SK_CODE_CROSSWALK` is the confirmed IVS mapping: `B01`, `B02` and `B04` are `BO1`, `BO2` and `BO4`. `B03` is not mapped, because `BO3` has no vessel reference.
@@ -134,16 +136,20 @@ Output names keep the older word voyage: `voyages.parquet` has one row per trip,
 
 | File | One row per | Main columns |
 | --- | --- | --- |
-| `voyages.parquet` | trip | `trip_id`, `status`, `detail`, `vessel_rws_class`, `appearance`, `loading_ratio`, `routing_loading_ratio`, `n_edges`, `distance_km`, `reported_time_h`, `choice_time_h`, `fuel_l`, `fixed_cost_eur`, `reported_total_cost_eur`, `choice_total_cost_eur`, `total_cost_eur`, `penalty_total_h`, `penalised_section_count`, `fuel_lowest_confidence` |
+| `voyages.parquet` | trip | `trip_id`, `departure_time`, `status`, `detail`, `vessel_rws_class`, `appearance`, `loading_ratio`, `routing_loading_ratio`, `n_edges`, `distance_km`, `lock_passages`, `reported_time_h`, `choice_time_h`, `fuel_l`, `distance_cost_eur`, `time_cost_eur`, `fuel_cost_eur`, `fixed_cost_eur`, `reported_total_cost_eur`, `choice_total_cost_eur`, `total_cost_eur`, `penalty_total_h`, `penalised_section_count`, `fuel_lowest_confidence` |
 | `trip_rejections.csv` | source row that is not a valid trip | `source_row_id`, `reason`, `detail` |
-| `voyage_edges.parquet` | sailed edge | `trip_id`, `seq`, `arc_id`, `from_node`, `to_node`, `penalty_<type>_h`, `reported_time_h`, `reported_cost_eur`, `choice_cost_eur`, `fuel_l`, `fuel_rate_l_per_h`, `fuel_method`, `fuel_confidence` |
-| `intensity.geoparquet` | used edge | trips, empty trips, cargo, time, cost, fuel and penalty sums |
+| `voyage_edges.parquet` | sailed edge | `trip_id`, `seq`, `arc_id`, `from_node`, `to_node`, `distance_km`, `speed_km_per_h`, `lock_count`, `lock_time_h`, `penalty_<type>_h`, `reported_time_h`, `distance_cost_eur`, `time_cost_eur`, `fuel_cost_eur`, `reported_cost_eur`, `choice_cost_eur`, `fuel_l`, `fuel_rate_l_per_km`, `fuel_method`, `fuel_confidence` |
+| `intensity.geoparquet` | used edge | trips, empty trips, cargo, time, the three cost parts, cost, fuel and penalty sums |
 | `assignment.gpkg` | layers `intensity` and `penalised_edges` | penalised edges list the structure, limit, penalty, trips and vessel classes |
 | `summary.json` | run | status counts, missing classes and rates, network size and parts, settings |
+| `run_metadata.json` | run | configuration, input file names with checksums, network report. Written by `run_assignment` |
+| `assignment_map.html` | run | the interactive map. Written by `run_assignment` unless `write_map=False` |
 
 `total_cost_eur` equals `choice_total_cost_eur` and includes penalties. Use `reported_total_cost_eur` for the cost a vessel actually incurs.
 
-**Time period.** The assignment does not use time. Every trip in the input file is routed once, whatever its date, and the outputs add up all of them. A run therefore covers exactly the period of its input file. To assign one period, filter the input rows first, for example on `Eerste_Tijdstip`, the time at the first counting point. `Begintijd_evenement` is not a start time: in the 2026 register it equals the last counting-point time in 98.1 % of rows.
+Per trip, `distance_cost_eur`, `time_cost_eur`, `fuel_cost_eur` and `fixed_cost_eur` add up to `reported_total_cost_eur`. `lock_passages` counts the locks on the route. An edge row repeats the section's distance, speed, lock count and lock time, so one trip can be checked without a join. `trace_trip(result, trip_id)` returns that table for one trip.
+
+**Time period.** The assignment does not use time. Every trip in the input file is routed once, whatever its date, and the outputs add up all of them. A run therefore covers exactly the period of its input file. To assign one period, set `period_start` and `period_end` in `AssignmentConfig`, or call `io.filter_trips_by_period`. Both use `Eerste_Tijdstip`, the time at the first counting point. The start is included and the end is not. That time is kept per trip as `departure_time`. `Begintijd_evenement` is not a start time: in the 2026 register it equals the last counting-point time in 98.1 % of rows.
 
 Trips with `vessel_fail`, `cost_fail` or `snap_fail` have no route. They are in `voyages.parquet` with a reason but absent from `voyage_edges.parquet` and the intensity tables, so intensity counts routed trips only.
 
@@ -157,7 +163,21 @@ From the IDE, with no data needed:
 poetry run python examples/assign_synthetic_trips.py
 ```
 
-In code:
+In one call, from files:
+
+```python
+from iww_route_assignment import AssignmentConfig, AssignmentPaths, run_assignment
+
+paths = AssignmentPaths(
+    trips=trips_path, graph=graph_path, structures=structures_dir, reference=reference_dir
+)
+config = AssignmentConfig(scenario=scenario, cargo_weight_unit="t")
+run = run_assignment(paths, config, output_dir)
+```
+
+`reference_dir` holds `cost_rates.csv`, `fuel_observations.csv`, `vessel_references.csv` and `navigability_vessels.csv`. See [Workflow](workflow.md).
+
+Step by step, with full control:
 
 ```python
 from iww_route_assignment import AssignmentSettings, CostInputs, VesselCatalogue, assign_traffic

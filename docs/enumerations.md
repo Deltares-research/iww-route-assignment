@@ -1,6 +1,6 @@
 # Enumerations and controlled vocabularies
 
-Every value in this page is a closed set. Any other value raises `ValidationError` at the boundary rather than silently defaulting. All enumerations are `StrEnum` members defined in `src/iww_route_assignment/domain/enums.py`, so the string in a CSV cell, a TOML key or an output column is identical to the Python member value.
+Every value in this page is a closed set. Any other value raises `ValidationError` at the boundary rather than silently defaulting. All enumerations are `StrEnum` members defined in `src/iww_route_assignment/domain/enums.py`, so the string in a CSV cell, a configuration field or an output column is identical to the Python member value.
 
 ## Contents
 
@@ -27,7 +27,7 @@ Each table gives the literal value, its meaning and where it appears.
 
 | Direction | Meaning |
 | --- | --- |
-| Input | You choose the value in a CSV cell or a case TOML key. |
+| Input | You choose the value in a CSV cell or a field of `AssignmentConfig`. |
 | Output | The library writes the value into a result column or report. |
 | Internal | The value exists in the Python API but has no direct CSV column. |
 
@@ -50,7 +50,7 @@ Each table gives the literal value, its meaning and where it appears.
 | `--dataset-label` | Namespace for source IDs; defaults to the source file stem. |
 | `--output` | Required arc-request CSV destination; rejection and preparation reports are written alongside. |
 
-Fuel has no cargo/profile selector. Notebook `selected_source` must explicitly be `general` or `container`; this chooses a complete source dataset before costing, not a goods type for each request. Conflicting observations cannot coexist under the same fuel key.
+Fuel has no cargo/profile selector. Notebook `selected_source` must explicitly be `general` or `container`; this chooses a complete source dataset before costing, not a goods type for each request. Conflicting observations cannot coexist under the same fuel key. Notebook `value_unit` must explicitly be `MJ_per_km` or `l_per_km`. Stored rates are always litres per km.
 
 [Back to contents](#contents)
 
@@ -64,7 +64,7 @@ Fuel has no cargo/profile selector. Notebook `selected_source` must explicitly b
 | `medium` | Half-loaded ship. | 0.5 |
 | `heavy` | Fully loaded ship. | 1.0 |
 
-These are ship-loading states, not waterway or engine categories. They name the three observed columns `diesel_light_l_per_h`, `diesel_medium_l_per_h` and `diesel_heavy_l_per_h`.
+These are ship-loading states, not waterway or engine categories. They name the three observed columns `diesel_light_l_per_km`, `diesel_medium_l_per_km` and `diesel_heavy_l_per_km`.
 
 The CSV runner never sets a category directly. It passes the continuous `loading_ratio` column, and the provider interpolates linearly between the two adjacent anchors. The Python API accepts either `loading_ratio` or `loading_category`, and exactly one of the two must be supplied.
 
@@ -76,7 +76,7 @@ Result columns `fuel_lower_loading_category` and `fuel_upper_loading_category` r
 
 ## Fuel resolution policy
 
-`FuelResolutionPolicy`. Direction: input. Set through `run.fuel_policy` in a case TOML, or the `policy` argument of `load_fuel_provider` and `TableFuelConsumptionProvider`. Default `audited_proxy`.
+`FuelResolutionPolicy`. Direction: input. Set through `AssignmentConfig.fuel_policy`, or the `policy` argument of `load_fuel_provider` and `TableFuelConsumptionProvider`. Default `audited_proxy`.
 
 This is the single most consequential run option, because it decides whether a gap in the fuel table stops the run or is filled with a recorded substitute.
 
@@ -332,6 +332,45 @@ Other assignment options, with defaults:
 | `origins_per_search` | `256` | Origins per Dijkstra call. |
 | `EurisLimitRules.lock_passage_time_h` | `0.5` | Reported time per lock. |
 | `EurisLimitRules.fairway_length` | `False` | Adds the fairway length limit. |
+| `departure_column` | `Eerste_Tijdstip` | Column with the start time of a trip. Kept as `departure_time` and used by the period filter. `None` skips it. |
 | `VesselCatalogue.class_aliases` | empty | Explicit source label to vessel class mapping. Use `io.IVS_SK_CODE_CROSSWALK` for IVS. |
+
+`AssignmentConfig` options for `io.run_assignment`, with defaults:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `scenario` | none, required | Fuel price, interest rate, cargo waiting time and idle fuel factor. |
+| `cargo_weight_unit` | none, required | Unit of the cargo column, `t` or `kg`. |
+| `settings`, `penalties`, `preferences`, `limit_rules` | library defaults | The settings objects described above. |
+| `class_aliases` | `IVS_SK_CODE_CROSSWALK` | Source label to vessel class mapping. |
+| `ivs_format` | `extended_2026` | Layout of the trip export. |
+| `drop_export_index` | `True` | Drops an unnamed index column of the export. |
+| `duplicate_trip_ids` | `exclude` | What to do with a repeated trip id. |
+| `fuel_policy` | `audited_proxy` | See [fuel resolution policy](#fuel-resolution-policy). |
+| `period_start`, `period_end` | `None` | Keep trips that start in this period. The end is exclusive. |
+| `sample_size`, `sample_seed` | `None`, `1` | Route a random sample of this size. The seed fixes the sample. |
+| `dataset_label` | file name of the trips | Prefix of every `trip_id`. |
+
+`run_assignment(..., write_map=True)` writes the interactive map. `False` skips it.
+
+Options of the map writer `io.write_assignment_map`:
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `title` | Traffic assignment | Heading of the page. |
+| `other` | `None` | A second result for the same trips. Its routes are drawn dotted in trip mode. |
+| `max_trips` | `300` | Runs with more trips leave out the trip picker, to keep the file small. |
+| `simplify_tolerance_deg` | `0.0003` | Line simplification in degrees. `0` keeps every point. |
+| `include_unused` | `True` | Draws the unused network in grey. |
+| `trip_labels` | `None` | Short names for trips in the trip picker, keyed by trip id with or without its dataset prefix. Labelled trips are listed first. |
+
+Map measures (`io.viewer.MEASURES`): `trips`, `cargo_t`, `cost_eur`, `fuel_l`, `time_h`, `empty_share`, `penalty_h`.
+
+Options of the reference build:
+
+| Option | Values | Meaning |
+| --- | --- | --- |
+| `extract_parameter_tables(cost_set=...)` | an `Id` of BIVAS `travel_costs`, default `3` | The cost set. `3` is Kostenkengetallen 2021. `read_bivas_cost_sets` lists them. |
+| `prepare_notebook_fuel_observations(value_unit=...)` | `MJ_per_km`, `l_per_km` | Unit of the source values. Required. `MJ_per_km` is divided by `diesel_energy_mj_per_l`, default 36. |
 
 [Back to contents](#contents)

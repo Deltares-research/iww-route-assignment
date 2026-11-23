@@ -32,9 +32,9 @@ Required CSV fields:
 | `source_row_id` | stable source identifier |
 | `vessel_rws_class` | canonical or supported alias |
 | `waterway_cemt_class` | ordered CEMT class |
-| `diesel_light_l_per_h` | light-loading fuel rate |
-| `diesel_medium_l_per_h` | medium-loading fuel rate |
-| `diesel_heavy_l_per_h` | heavy-loading fuel rate |
+| `diesel_light_l_per_km` | light-loading fuel rate |
+| `diesel_medium_l_per_km` | medium-loading fuel rate |
+| `diesel_heavy_l_per_km` | heavy-loading fuel rate |
 | `source_dataset` | source and version label |
 
 The canonical key `(vessel_rws_class, waterway_cemt_class)` must be unique. Fuel has no goods/profile column. Select one source dataset explicitly when notebook sources conflict; never merge or average them silently. Generated CSV index columns are rejected.
@@ -116,7 +116,7 @@ Grouped by consumer:
 
 The nested fuel audit is never dropped or summarised away. `fuel_method` and `fuel_confidence` take the values in [Enumerations](enumerations.md#fuel-resolution-method); `fuel_source_row_ids`, `fuel_source_datasets`, `fuel_notes` and `fuel_proxy_distance_terms` are JSON encoded so a single CSV cell stays parsable.
 
-The external illustrative runner documents its request CSV in `runs/20260814_test_case_cost_function`. See [Case configuration](configuration.md) for the TOML that drives it.
+In a traffic assignment the arc requests are built from the network and the trips, so no request CSV is written by hand. See [Workflow](workflow.md).
 
 [Back to contents](#contents)
 

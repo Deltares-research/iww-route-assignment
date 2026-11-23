@@ -34,7 +34,7 @@ Current packages:
 - `costs`: fuel-provider protocol, audited table provider and calculators;
 - `navigability`: physical-limit evaluator, arc masks and the choice-weight guard;
 - `assignment`: network contract, snapping, penalties, cost-weighted search and repricing;
-- `io`: pandas CSV boundaries, the EuRIS adapter, trip reading for assignment, notebook preparation and result writers.
+- `io`: pandas CSV boundaries, the EuRIS adapter, the BIVAS reader, the reference-table build, trip reading for assignment, the one-call workflow, check tables, the map writer and result writers.
 
 [Back to contents](#contents)
 
