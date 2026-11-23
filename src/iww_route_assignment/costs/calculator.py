@@ -85,7 +85,7 @@ def calculate_arc_cost_arrays(
     realised_speed_km_per_h: npt.ArrayLike,
     reported_fixed_time_h: npt.ArrayLike,
     choice_only_time_h: npt.ArrayLike,
-    fuel_rate_l_per_h: npt.ArrayLike,
+    fuel_rate_l_per_km: npt.ArrayLike,
     rates: CostRates,
     scenario: ScenarioCostParameters,
 ) -> ArcCostArrays:
@@ -98,7 +98,7 @@ def calculate_arc_cost_arrays(
     speed = _checked("realised_speed_km_per_h", realised_speed_km_per_h)
     reported_fixed_time = _checked("reported_fixed_time_h", reported_fixed_time_h)
     choice_only_time = _checked("choice_only_time_h", choice_only_time_h)
-    fuel_rate = _checked("fuel_rate_l_per_h", fuel_rate_l_per_h)
+    fuel_rate = _checked("fuel_rate_l_per_km", fuel_rate_l_per_km)
     shapes = {a.shape for a in (distance, speed, reported_fixed_time, choice_only_time, fuel_rate)}
     if len(shapes) != 1:
         raise ValidationError(f"Arc cost arrays must have equal shapes; received {shapes}")
@@ -129,8 +129,11 @@ def calculate_arc_cost_arrays(
         + other_cost
     )
 
-    sailing_fuel = fuel_rate * movement_time
-    idle_fuel = fuel_rate * scenario.idle_fuel_factor * reported_fixed_time
+    # Fuel is given per km, as in the energy source. Sailing fuel follows distance, so it does
+    # not depend on the speed attribute of the arc. Idle fuel during fixed time is a share of
+    # the hourly burn while sailing, which is the per-km rate times the realised speed.
+    sailing_fuel = fuel_rate * distance
+    idle_fuel = fuel_rate * speed * scenario.idle_fuel_factor * reported_fixed_time
     sailing_fuel_cost = sailing_fuel * scenario.fuel_price_eur_per_l
     idle_fuel_cost = idle_fuel * scenario.fuel_price_eur_per_l
     reported_variable_cost = distance_cost + time_cost + sailing_fuel_cost + idle_fuel_cost
@@ -201,7 +204,7 @@ def calculate_arc_costs(
         _array(arcs, "realised_speed_km_per_h"),
         reported_fixed_time,
         _array(arcs, "calibration_delay_time_h") + _array(arcs, "relaxation_penalty_time_h"),
-        np.asarray([fuel.fuel_rate_l_per_h for fuel in fuels], dtype=np.float64),
+        np.asarray([fuel.fuel_rate_l_per_km for fuel in fuels], dtype=np.float64),
         rates,
         scenario,
     )

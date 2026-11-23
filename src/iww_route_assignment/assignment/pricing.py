@@ -144,7 +144,7 @@ def search_weights(
     *,
     rates: CostRates | None = None,
     scenario: ScenarioCostParameters | None = None,
-    fuel_rate_l_per_h: npt.NDArray[np.float64] | None = None,
+    fuel_rate_l_per_km: npt.NDArray[np.float64] | None = None,
 ) -> npt.NDArray[np.float64]:
     """Return the quantity the route search minimises on every edge.
 
@@ -154,14 +154,14 @@ def search_weights(
     """
     if metric is RouteCostMetric.TRAVEL_TIME:
         return travel.distance_km / travel.speed_km_per_h + travel.reported_fixed_time_h + penalty_h
-    if rates is None or scenario is None or fuel_rate_l_per_h is None:
+    if rates is None or scenario is None or fuel_rate_l_per_km is None:
         raise ValidationError("travel_cost_eur needs rates, scenario and fuel rates")
     return calculate_arc_cost_arrays(
         travel.distance_km,
         travel.speed_km_per_h,
         travel.reported_fixed_time_h,
         penalty_h,
-        fuel_rate_l_per_h,
+        fuel_rate_l_per_km,
         rates,
         scenario,
     ).choice_cost_eur
@@ -194,7 +194,7 @@ def price_route(
         travel.speed_km_per_h[edges],
         travel.reported_fixed_time_h[edges],
         penalty_h[edges],
-        np.array([fuel.fuel_rate_l_per_h for fuel in fuels], dtype=np.float64),
+        np.array([fuel.fuel_rate_l_per_km for fuel in fuels], dtype=np.float64),
         rates,
         scenario,
     )
