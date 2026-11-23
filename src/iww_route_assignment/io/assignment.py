@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping
-from dataclasses import fields, is_dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +18,7 @@ from ._frames import require_columns
 from .ivs import trip_rejections_to_frame
 from .ivs_extended import DEFAULT_SEGMENT_MAP
 from .ivs_sources import read_ivs_frame
+from .provenance import to_record
 
 logger = logging.getLogger(__name__)
 
@@ -114,12 +113,17 @@ def read_assignment_trips(
         text = text.where(text.notna() & (text != ""), None).astype(object)
         return gpd.GeoSeries.from_wkt(text.to_numpy(), crs=settings.points_crs, on_invalid="ignore")
 
+    departures: tuple[str, ...] = ()
+    if settings.departure_column and settings.departure_column in kept.columns:
+        column = kept[settings.departure_column].iloc[rows].astype("string").fillna("")
+        departures = tuple(column.str.strip().tolist())
     return AssignmentTrips(
         parsed.trips,
         points(settings.origin_column),
         points(settings.destination_column),
         parsed.rejections,
         excluded,
+        departures,
     )
 
 
@@ -128,21 +132,6 @@ def load_assignment_trips_csv(path: str | Path, **options: Any) -> AssignmentTri
     source = Path(path)
     options.setdefault("source_dataset", source.stem)
     return read_assignment_trips(pd.read_csv(source, dtype="string"), **options)
-
-
-def to_record(value: Any) -> Any:
-    """Turn settings dataclasses, enums and sets into JSON-ready values."""
-    if is_dataclass(value) and not isinstance(value, type):
-        return {f.name: to_record(getattr(value, f.name)) for f in fields(value) if f.init}
-    if isinstance(value, Enum):
-        return value.value
-    if isinstance(value, frozenset | set):
-        return sorted(to_record(v) for v in value)
-    if isinstance(value, Mapping):
-        return {str(k): to_record(v) for k, v in value.items()}
-    if isinstance(value, tuple | list):
-        return [to_record(v) for v in value]
-    return value
 
 
 def write_assignment_outputs(
