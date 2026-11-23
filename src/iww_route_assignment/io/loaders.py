@@ -25,9 +25,9 @@ _FUEL_COLUMNS = {
     "source_row_id",
     "vessel_rws_class",
     "waterway_cemt_class",
-    "diesel_light_l_per_h",
-    "diesel_medium_l_per_h",
-    "diesel_heavy_l_per_h",
+    "diesel_light_l_per_km",
+    "diesel_medium_l_per_km",
+    "diesel_heavy_l_per_km",
     "source_dataset",
 }
 
@@ -83,9 +83,9 @@ def load_fuel_observations_csv(path: str | Path) -> tuple[FuelConsumptionObserva
             source_row_id=_text(row, "source_row_id"),
             vessel_rws_class=_text(row, "vessel_rws_class"),
             waterway_cemt_class=_text(row, "waterway_cemt_class"),
-            diesel_light_l_per_h=_number(row, "diesel_light_l_per_h"),
-            diesel_medium_l_per_h=_number(row, "diesel_medium_l_per_h"),
-            diesel_heavy_l_per_h=_number(row, "diesel_heavy_l_per_h"),
+            diesel_light_l_per_km=_number(row, "diesel_light_l_per_km"),
+            diesel_medium_l_per_km=_number(row, "diesel_medium_l_per_km"),
+            diesel_heavy_l_per_km=_number(row, "diesel_heavy_l_per_km"),
             source_dataset=_text(row, "source_dataset"),
         )
         for _, row in table.iterrows()

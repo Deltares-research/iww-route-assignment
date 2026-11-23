@@ -37,7 +37,7 @@ def test_load_fuel_provider_convenience() -> None:
         FIXTURES / "fuel_observations.csv", FIXTURES / "vessel_references.csv"
     )
     result = provider.resolve("M1", "I", loading_category=LoadingCategory.LIGHT)
-    assert result.fuel_rate_l_per_h == 40.0
+    assert result.fuel_rate_l_per_km == 4.0
 
 
 def test_generated_index_csv_is_not_silently_treated_as_normalised(

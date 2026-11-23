@@ -197,7 +197,7 @@ def test_array_core_matches_batch_calculator(cost_inputs) -> None:
         [9.0, 1.0],
         [0.5, 0.25],
         [3.0, 1.0],
-        [fuel.fuel_rate_l_per_h] * 2,
+        [fuel.fuel_rate_l_per_km] * 2,
         rates,
         scenario,
     )
