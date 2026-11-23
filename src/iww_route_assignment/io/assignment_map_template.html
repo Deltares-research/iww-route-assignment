@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root { --ink:#17222B; --muted:#4B5A62; --paper:#F2F5F5; --panel:#FFFFFF; --line:#D3DBDC;
+          --accent:#2A6F77; --hit:#A4473F; }
+  @media (prefers-color-scheme: dark) {
+    :root { --ink:#E7EDEC; --muted:#9FB1B0; --paper:#10181C; --panel:#172226; --line:#263236;
+            --accent:#5FB8BF; --hit:#E08A80; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { display: flex; background: var(--paper); color: var(--ink);
+         font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  #map { flex: 1 1 60%; min-width: 0; background: var(--paper); }
+  #side { flex: 0 0 380px; max-width: 45%; overflow-y: auto; padding: 14px 16px;
+          background: var(--panel); border-left: 1px solid var(--line); }
+  @media (max-width: 760px) { body { flex-direction: column; } #map { flex: 0 0 55%; }
+    #side { flex: 1 1 auto; max-width: none; border-left: 0; border-top: 1px solid var(--line); } }
+  h1 { font-size: 1.15rem; margin: 0 0 2px; }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .07em; color: var(--muted);
+       margin: 16px 0 6px; }
+  .sub { color: var(--muted); font-size: .85rem; margin: 0 0 8px; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tile { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+  .tile b { display: block; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+  .tile span { color: var(--muted); font-size: .78rem; }
+  select, label { font: inherit; }
+  select { width: 100%; padding: 5px 6px; background: var(--panel); color: var(--ink);
+           border: 1px solid var(--line); border-radius: 4px; }
+  .checks label { display: block; padding: 2px 0; }
+  .legend div { display: flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+  .legend i { display: inline-block; width: 26px; height: 5px; border-radius: 2px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; font-variant-numeric: tabular-nums; }
+  td { padding: 3px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:last-child { text-align: right; }
+  .note { color: var(--muted); font-size: .82rem; }
+  .bad { color: var(--hit); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="side">
+  <h1 id="title"></h1>
+  <p class="sub" id="subtitle"></p>
+  <div class="tiles" id="tiles"></div>
+  <h2>Colour sections by</h2>
+  <select id="measure" aria-label="Measure"></select>
+  <div class="legend" id="legend"></div>
+  <p class="note">Line width follows the number of trips.</p>
+  <h2>Layers</h2>
+  <div class="checks" id="layers"></div>
+  <div id="tripbox" hidden>
+    <h2>Follow one trip</h2>
+    <select id="trip" aria-label="Trip"></select>
+    <div id="tripinfo"></div>
+  </div>
+  <h2>Selected section</h2>
+  <div id="info"><p class="note">Click a section on the map.</p></div>
+</div>
+<script>
+const DATA = __DATA__;
+const dark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+const RAMP = dark ? ["#1f4e5a", "#2f7f88", "#48aeb0", "#8fd3c1", "#e6f5b0"]
+                  : ["#bcdcdc", "#7fc0c4", "#3f9aa3", "#216b78", "#0c3b4a"];
+const PENALTY_COLOUR = { beam: "#c0392b", length: "#d35400", draught: "#2980b9",
+  air_draught: "#8e44ad", undetermined: "#7f8c8d", cemt: "#b7950b", sea: "#16a085" };
+const fmt = (x, d = 0) => Number(x).toLocaleString("en-GB", { maximumFractionDigits: d });
+const el = (id) => document.getElementById(id);
+
+const map = L.map("map", { preferCanvas: true });
+const ESRI = "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/";
+L.tileLayer(ESRI + (dark ? "World_Dark_Gray_Base" : "World_Light_Gray_Base") + "/MapServer/tile/{z}/{y}/{x}",
+  { attribution: "Tiles &copy; Esri", maxZoom: 16 }).addTo(map);
+
+const used = DATA.edges.filter((e) => e.u);
+const byIndex = new Map(DATA.edges.map((e) => [e.i, e]));
+const tripValues = used.map((e) => e.v.trips).sort((a, b) => a - b);
+const widthRef = tripValues.length ? tripValues[Math.floor(0.95 * (tripValues.length - 1))] || 1 : 1;
+const widthOf = (e) => 1.5 + 7 * Math.min(e.v.trips, widthRef) / widthRef;
+
+let breaks = [];
+function setBreaks(key) {
+  const values = used.map((e) => e.v[key]).filter((v) => v > 0).sort((a, b) => a - b);
+  const cuts = [0.2, 0.4, 0.6, 0.8].map((q) => values.length ? values[Math.floor(q * (values.length - 1))] : 0);
+  const top = values.length ? values[values.length - 1] : 0;
+  breaks = [...new Set(cuts)].filter((v) => v < top);
+}
+function colourOf(value) {
+  if (!(value > 0)) return dark ? "#3a474c" : "#c9d2d3";
+  let k = 0;
+  while (k < breaks.length && value > breaks[k]) k += 1;
+  return RAMP[Math.round(k * (RAMP.length - 1) / Math.max(breaks.length, 1))];
+}
+
+const layers = {
+  unused: L.layerGroup(), sections: L.layerGroup(), penalised: L.layerGroup(),
+  locks: L.layerGroup(), trip: L.layerGroup(), other: L.layerGroup(),
+};
+DATA.edges.filter((e) => !e.u).forEach((e) => {
+  L.polyline(e.g, { color: dark ? "#3a474c" : "#b9c3c5", weight: 1, opacity: 0.7,
+    interactive: false }).addTo(layers.unused);
+});
+const lines = new Map();
+used.forEach((e) => {
+  const line = L.polyline(e.g, { weight: widthOf(e), opacity: 0.9 });
+  line.on("click", () => showSection(e));
+  line.bindTooltip(e.name, { sticky: true });
+  line.addTo(layers.sections);
+  lines.set(e.i, line);
+  e.p.forEach((p) => {
+    L.polyline(e.g, { color: PENALTY_COLOUR[p.type] || "#c0392b", weight: widthOf(e) + 4,
+      opacity: 0.55, dashArray: "6 6", interactive: false }).addTo(layers.penalised);
+  });
+  if (e.locks > 0) {
+    const mid = e.g[Math.floor(e.g.length / 2)];
+    L.circleMarker(mid, { radius: 4, color: dark ? "#e6f5b0" : "#0c3b4a", weight: 1.5,
+      fillColor: dark ? "#10181C" : "#ffffff", fillOpacity: 1 })
+      .bindTooltip(e.name + ": " + e.locks + (e.locks === 1 ? " lock" : " locks")).addTo(layers.locks);
+  }
+});
+
+function restyle() {
+  const key = el("measure").value;
+  setBreaks(key);
+  used.forEach((e) => lines.get(e.i).setStyle({ color: colourOf(e.v[key]) }));
+  const measure = DATA.measures.find((m) => m.key === key);
+  const edges = [0, ...breaks];
+  el("legend").innerHTML = edges.map((from, k) => {
+    const colour = RAMP[Math.round(k * (RAMP.length - 1) / Math.max(breaks.length, 1))];
+    const text = k < breaks.length ? "above " + fmt(from, 1) + " to " + fmt(breaks[k], 1) : "above " + fmt(from, 1);
+    return `<div><i style="background:${colour}"></i>${text} ${measure.unit}</div>`;
+  }).join("");
+}
+
+function showSection(e) {
+  const rows = [["CEMT class", e.cemt || "none"], ["Length", fmt(e.km, 2) + " km"],
+    ["Locks", e.locks], ["Trips", fmt(e.v.trips)], ["Empty trips", fmt(e.v.empty_share, 1) + " %"],
+    ["Cargo", fmt(e.v.cargo_t) + " t"], ["Reported cost", fmt(e.v.cost_eur) + " EUR"],
+    ["Fuel", fmt(e.v.fuel_l) + " l"], ["Reported time", fmt(e.v.time_h, 1) + " h"],
+    ["Penalty hours", fmt(e.v.penalty_h)]];
+  let html = `<p><b>${e.name}</b><br><span class="note">${e.code || ""}</span></p><table>` +
+    rows.map((r) => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("") + "</table>";
+  if (e.p.length) {
+    html += "<h2>Limits not met here</h2><table>" + e.p.map((p) =>
+      `<tr><td><span class="bad">${p.type.replace("_", " ")}</span><br><span class="note">${p.structure_type} ${p.structure}` +
+      `${p.limit_m === null ? "" : ", limit " + p.limit_m + " m"}<br>${p.classes}</span></td>` +
+      `<td>${fmt(p.trips)} trips<br>${fmt(p.penalty_h)} h each</td></tr>`).join("") + "</table>";
+  } else {
+    html += '<p class="note">Every ship that sailed here met the limits.</p>';
+  }
+  el("info").innerHTML = html;
+}
+
+function drawRoute(group, indices, colour, dash) {
+  group.clearLayers();
+  const bounds = [];
+  indices.forEach((i) => {
+    const e = byIndex.get(i);
+    if (!e) return;
+    L.polyline(e.g, { color: colour, weight: 6, opacity: 0.95, dashArray: dash, interactive: false }).addTo(group);
+    bounds.push(...e.g);
+  });
+  return bounds;
+}
+function showTrip() {
+  const t = DATA.trips[Number(el("trip").value)];
+  layers.trip.clearLayers(); layers.other.clearLayers();
+  if (!t) { el("tripinfo").innerHTML = ""; return; }
+  let html = `<table><tr><td>Status</td><td>${t.status}</td></tr>` +
+    `<tr><td>Ship, cargo</td><td>${t.cls || "unknown"}, ${t.app || "none"}, ${fmt(t.cargo_t)} t</td></tr>`;
+  if (t.status !== "success") {
+    html += `<tr><td>Reason</td><td class="bad">${t.detail}</td></tr></table>`;
+  } else {
+    html += `<tr><td>Route</td><td>${fmt(t.km, 1)} km, ${fmt(t.h, 2)} h</td></tr>` +
+      `<tr><td>Distance cost</td><td>${fmt(t.distance_cost)} EUR</td></tr>` +
+      `<tr><td>Time cost</td><td>${fmt(t.time_cost)} EUR</td></tr>` +
+      `<tr><td>Fuel, ${fmt(t.fuel_l)} l</td><td>${fmt(t.fuel_cost)} EUR</td></tr>` +
+      `<tr><td>Fixed cargo cost</td><td>${fmt(t.fixed_cost)} EUR</td></tr>` +
+      `<tr><td><b>Reported total</b></td><td><b>${fmt(t.cost)} EUR</b></td></tr>` +
+      `<tr><td>Penalty hours</td><td>${fmt(t.penalty_h)}</td></tr>` +
+      `<tr><td>Fuel confidence</td><td>${t.confidence}</td></tr>`;
+    if (t.alt) {
+      const same = JSON.stringify(t.alt.e) === JSON.stringify(t.e);
+      html += `<tr><td>By ${DATA.other_label.replaceAll("_", " ")}</td><td>${same ? "same route" :
+        fmt(t.alt.km, 1) + " km, " + fmt(t.alt.h, 2) + " h, " + fmt(t.alt.cost) + " EUR"}</td></tr>`;
+    }
+    html += "</table>";
+    if (t.alt) drawRoute(layers.other, t.alt.e, dark ? "#f2c14e" : "#b7950b", "2 9");
+    const bounds = drawRoute(layers.trip, t.e, dark ? "#ff8a7a" : "#c0392b", null);
+    if (bounds.length) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+    if (t.alt) html += '<p class="note">Solid: this run. Dotted: the other run.</p>';
+  }
+  el("tripinfo").innerHTML = html;
+}
+
+const S = DATA.summary;
+el("title").textContent = DATA.title;
+el("subtitle").textContent = "Route search by " + S.metric.replaceAll("_", " ");
+const failed = Object.entries(S.status).filter(([k]) => k !== "success").map(([k, v]) => `${fmt(v)} ${k.replace("_", " ")}`);
+el("tiles").innerHTML = [
+  [fmt(S.routed), "trips routed of " + fmt(S.trips)],
+  [failed.length ? failed.join(", ") : "none", "not routed" + (S.rejected ? ", plus " + fmt(S.rejected) + " rows rejected" : "")],
+  [fmt(S.cost_eur) + " EUR", "reported cost"],
+  [fmt(S.fuel_l) + " l", "fuel"],
+  [fmt(S.penalised_trips), "trips past an unmet limit"],
+  [fmt(S.fuel_proxy_share, 1) + " %", "trips with low fuel confidence"],
+].map((t) => `<div class="tile"><b>${t[0]}</b><span>${t[1]}</span></div>`).join("");
+el("measure").innerHTML = DATA.measures.map((m) => `<option value="${m.key}">${m.label}</option>`).join("");
+el("measure").addEventListener("change", restyle);
+
+// On a large run nearly every busy section has some finding, so traffic is shown first.
+const layerList = [["sections", "Used sections", true], ["penalised", "Sections with an unmet limit", DATA.trips.length > 0],
+  ["locks", "Locks on used sections", false], ["unused", "Unused network", true]];
+el("layers").innerHTML = layerList.map(([k, label, on]) =>
+  `<label><input type="checkbox" id="layer-${k}" ${on ? "checked" : ""}> ${label}</label>`).join("") +
+  '<div class="legend" style="margin-top:6px">' + DATA.penalty_types.map((t) =>
+  `<div><i style="background:${PENALTY_COLOUR[t]}"></i>${t.replace("_", " ")}</div>`).join("") + "</div>";
+["unused", "sections", "penalised", "locks"].forEach((k) => {
+  const on = layerList.find((l) => l[0] === k)[2];
+  if (on) layers[k].addTo(map);
+  el("layer-" + k).addEventListener("change", (ev) => ev.target.checked ? layers[k].addTo(map) : map.removeLayer(layers[k]));
+});
+layers.other.addTo(map); layers.trip.addTo(map);
+
+if (DATA.trips.length) {
+  el("tripbox").hidden = false;
+  el("trip").innerHTML = '<option value="-1">Choose a trip</option>' + DATA.trips.map((t, k) =>
+    `<option value="${k}">${t.label || t.id} · ${t.cls || "?"} · ${t.status}</option>`).join("");
+  el("trip").addEventListener("change", showTrip);
+}
+restyle();
+const all = used.flatMap((e) => e.g);
+if (all.length) map.fitBounds(all, { padding: [20, 20] }); else map.setView([52.1, 5.3], 7);
+</script>
+</body>
+</html>
