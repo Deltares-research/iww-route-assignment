@@ -13,6 +13,7 @@ from .assignment import (
     RoutePreferences,
     VesselCatalogue,
     assign_traffic,
+    trace_trip,
 )
 from .costs import (
     FallbackFuelConsumptionProvider,
@@ -72,6 +73,12 @@ from .exceptions import (
     IWWRouteAssignmentError,
     ValidationError,
 )
+from .io.workflow import (
+    AssignmentConfig,
+    AssignmentPaths,
+    AssignmentRun,
+    run_assignment,
+)
 from .navigability import (
     build_restriction_index,
     evaluate_arc,
@@ -90,6 +97,11 @@ from .preparation import (
 )
 
 __all__ = [
+    "AssignmentConfig",
+    "AssignmentPaths",
+    "AssignmentRun",
+    "run_assignment",
+    "trace_trip",
     "AssignmentNetwork",
     "AssignmentResult",
     "AssignmentSettings",

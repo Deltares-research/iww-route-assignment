@@ -21,6 +21,7 @@ from .settings import (
     RoutePreferences,
 )
 from .snapping import SNAP_CRS, EdgeSnapIndex, SnapResult, build_snap_index, snap_points
+from .trace import TRACE_COLUMNS, trace_trip
 from .trips import AssignmentTrips, PreparedTrips, VesselCatalogue, prepare_trips
 
 __all__ = [
@@ -57,4 +58,6 @@ __all__ = [
     "routing_loading_ratio",
     "search_weights",
     "snap_points",
+    "TRACE_COLUMNS",
+    "trace_trip",
 ]
