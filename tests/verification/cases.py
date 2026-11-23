@@ -81,27 +81,27 @@ OBSERVATIONS = (
         source_row_id="verification:M1:I",
         vessel_rws_class="M1",
         waterway_cemt_class="I",
-        diesel_light_l_per_h=40.0,
-        diesel_medium_l_per_h=60.0,
-        diesel_heavy_l_per_h=80.0,
+        diesel_light_l_per_km=4.0,
+        diesel_medium_l_per_km=6.0,
+        diesel_heavy_l_per_km=8.0,
         source_dataset="verification-case",
     ),
     FuelConsumptionObservation(
         source_row_id="verification:M1:Va",
         vessel_rws_class="M1",
         waterway_cemt_class="Va",
-        diesel_light_l_per_h=60.0,
-        diesel_medium_l_per_h=80.0,
-        diesel_heavy_l_per_h=100.0,
+        diesel_light_l_per_km=6.0,
+        diesel_medium_l_per_km=8.0,
+        diesel_heavy_l_per_km=10.0,
         source_dataset="verification-case",
     ),
     FuelConsumptionObservation(
         source_row_id="verification:M1:I:container",
         vessel_rws_class="M1",
         waterway_cemt_class="I",
-        diesel_light_l_per_h=50.0,
-        diesel_medium_l_per_h=70.0,
-        diesel_heavy_l_per_h=90.0,
+        diesel_light_l_per_km=5.0,
+        diesel_medium_l_per_km=7.0,
+        diesel_heavy_l_per_km=9.0,
         source_dataset="verification-case",
     ),
 )
@@ -168,7 +168,7 @@ def _trip_total_actual() -> dict[str, Any]:
 def _loading_interpolation_actual() -> dict[str, Any]:
     fuel = PROVIDER.resolve("M1", "I", loading_ratio=0.25)
     return {
-        "fuel_rate_l_per_h": fuel.fuel_rate_l_per_h,
+        "fuel_rate_l_per_km": fuel.fuel_rate_l_per_km,
         "method": fuel.method.value,
         "confidence": fuel.confidence.value,
     }
@@ -177,7 +177,7 @@ def _loading_interpolation_actual() -> dict[str, Any]:
 def _waterway_interpolation_actual() -> dict[str, Any]:
     fuel = PROVIDER.resolve("M1", "III", loading_category=LoadingCategory.MEDIUM)
     return {
-        "fuel_rate_l_per_h": fuel.fuel_rate_l_per_h,
+        "fuel_rate_l_per_km": fuel.fuel_rate_l_per_km,
         "method": fuel.method.value,
         "confidence": fuel.confidence.value,
     }
@@ -189,8 +189,8 @@ def _profile_separation_actual() -> dict[str, Any]:
         "M1", "I", loading_category=LoadingCategory.HEAVY
     )
     return {
-        "general_fuel_rate_l_per_h": general.fuel_rate_l_per_h,
-        "container_fuel_rate_l_per_h": container.fuel_rate_l_per_h,
+        "general_fuel_rate_l_per_km": general.fuel_rate_l_per_km,
+        "container_fuel_rate_l_per_km": container.fuel_rate_l_per_km,
     }
 
 
@@ -225,13 +225,14 @@ CASES: tuple[VerificationCase, ...] = (
         requirement="Total remains populated with zero fixed cost",
         description="An empty two-arc trip retains operating cost and supplied penalties.",
         hand_calculation=(
-            "per arc: 120 + 312 + 40 x 5 x 1.5 + 40 x 0.2 x 1.5 = 744; "
-            "reported = 1488; penalty = 2 x 52; total = 1592; fixed = 0"
+            "per arc: 120 + 312 + sailing fuel 4 l/km x 60 km x 1.5 = 360 "
+            "+ idle fuel 4 x 12 km/h x 0.2 x 1 h x 1.5 = 14.4, so 806.4; "
+            "reported = 1612.8; penalty = 2 x 52; total = 1716.8; fixed = 0"
         ),
         expected={
             "fixed_cost_eur": 0.0,
-            "total_cost_eur": 1592.0,
-            "reported_total_cost_eur": 1488.0,
+            "total_cost_eur": 1716.8,
+            "reported_total_cost_eur": 1612.8,
         },
         compute=_empty_trip_actual,
     ),
@@ -243,10 +244,10 @@ CASES: tuple[VerificationCase, ...] = (
             "movement = 60 / 12 = 5 h; fixed = 0.5 + 0.25 + 0.25 = 1 h; reported = 6 h; "
             "choice only = 0.5 + 0.5 = 1 h; distance cost = 2 x 60 = 120; "
             "time cost = (20 + 5 + 3 + 4 x 1 + 10 + 4 + 6) x 6 = 52 x 6 = 312; "
-            "sailing fuel = 60 x 5 = 300 l at 1.5 = 450; "
-            "idle fuel = 60 x 0.2 x 1 = 12 l at 1.5 = 18; "
-            "reported variable = 120 + 312 + 450 + 18 = 900; "
-            "choice only cost = 52 x 1 = 52; choice cost = 952"
+            "sailing fuel = 6 l/km x 60 km = 360 l at 1.5 = 540; "
+            "idle fuel = 6 l/km x 12 km/h x 0.2 x 1 h = 14.4 l at 1.5 = 21.6; "
+            "reported variable = 120 + 312 + 540 + 21.6 = 993.6; "
+            "choice only cost = 52 x 1 = 52; choice cost = 1045.6"
         ),
         expected={
             "movement_time_h": 5.0,
@@ -255,13 +256,13 @@ CASES: tuple[VerificationCase, ...] = (
             "choice_time_h": 7.0,
             "distance_cost_eur": 120.0,
             "time_cost_eur": 312.0,
-            "sailing_fuel_l": 300.0,
-            "idle_fuel_l": 12.0,
-            "sailing_fuel_cost_eur": 450.0,
-            "idle_fuel_cost_eur": 18.0,
-            "reported_variable_cost_eur": 900.0,
+            "sailing_fuel_l": 360.0,
+            "idle_fuel_l": 14.4,
+            "sailing_fuel_cost_eur": 540.0,
+            "idle_fuel_cost_eur": 21.6,
+            "reported_variable_cost_eur": 993.6,
             "choice_only_cost_eur": 52.0,
-            "choice_cost_eur": 952.0,
+            "choice_cost_eur": 1045.6,
         },
         compute=_arc_cost_actual,
     ),
@@ -295,14 +296,14 @@ CASES: tuple[VerificationCase, ...] = (
         requirement="Trip total adds fixed cost once",
         description="Two identical arcs plus one fixed trip cost.",
         hand_calculation=(
-            "arc reported = 2 x 900 = 1800; total reported = 1800 + 1530 = 3330; "
-            "arc choice = 2 x 952 = 1904; total choice = 1904 + 1530 = 3434"
+            "arc reported = 2 x 993.6 = 1987.2; total reported = 1987.2 + 1530 = 3517.2; "
+            "arc choice = 2 x 1045.6 = 2091.2; total choice = 2091.2 + 1530 = 3621.2"
         ),
         expected={
-            "arc_reported_cost_eur": 1800.0,
-            "reported_total_cost_eur": 3330.0,
-            "choice_total_cost_eur": 3434.0,
-            "total_cost_eur": 3434.0,
+            "arc_reported_cost_eur": 1987.2,
+            "reported_total_cost_eur": 3517.2,
+            "choice_total_cost_eur": 3621.2,
+            "total_cost_eur": 3621.2,
         },
         compute=_trip_total_actual,
     ),
@@ -311,10 +312,10 @@ CASES: tuple[VerificationCase, ...] = (
         requirement="Loading-ratio interpolation",
         description="A ratio of 0.25 lies halfway between the light and medium anchors.",
         hand_calculation=(
-            "fraction = (0.25 - 0) / (0.5 - 0) = 0.5; rate = 40 + 0.5 x (60 - 40) = 50"
+            "fraction = (0.25 - 0) / (0.5 - 0) = 0.5; rate = 4 + 0.5 x (6 - 4) = 5 l/km"
         ),
         expected={
-            "fuel_rate_l_per_h": 50.0,
+            "fuel_rate_l_per_km": 5.0,
             "method": "loading_interpolated",
             "confidence": "high",
         },
@@ -326,10 +327,10 @@ CASES: tuple[VerificationCase, ...] = (
         description="Class III lies halfway between the observed classes I and Va.",
         hand_calculation=(
             "ranks I = 1, III = 3, Va = 5; fraction = (3 - 1) / (5 - 1) = 0.5; "
-            "rate = 60 + 0.5 x (80 - 60) = 70"
+            "rate = 6 + 0.5 x (8 - 6) = 7 l/km"
         ),
         expected={
-            "fuel_rate_l_per_h": 70.0,
+            "fuel_rate_l_per_km": 7.0,
             "method": "waterway_interpolated",
             "confidence": "medium",
         },
@@ -339,10 +340,12 @@ CASES: tuple[VerificationCase, ...] = (
         case_id="V-FUEL-003",
         requirement="Fuel sources require explicit selection",
         description="Separate providers explicitly select different source datasets; no merging.",
-        hand_calculation="selected general-source heavy = 80; selected alternate-source heavy = 90",
+        hand_calculation=(
+            "selected general-source heavy = 8 l/km; selected alternate-source heavy = 9 l/km"
+        ),
         expected={
-            "general_fuel_rate_l_per_h": 80.0,
-            "container_fuel_rate_l_per_h": 90.0,
+            "general_fuel_rate_l_per_km": 8.0,
+            "container_fuel_rate_l_per_km": 9.0,
         },
         compute=_profile_separation_actual,
     ),
@@ -367,8 +370,8 @@ def _assignment_cases() -> tuple[VerificationCase, ...]:
             description="Time picks the faster route, cost picks the cheaper route.",
             hand_calculation=(
                 "time: A-B-D 2.0 h, A-C-D 1.5 h, so A-C-D. "
-                "cost, empty M1 at 40 l/h: A-B-D 10 x 20 + 30 x 2 + 40 x 2 x 2 = 420; "
-                "A-C-D 10 x 30 + 30 x 1.5 + 40 x 1.5 x 2 = 465, so A-B-D at 420"
+                "cost, empty M1 at 4 l/km: A-B-D 10 x 20 + 30 x 2 + 4 x 20 x 2 = 420; "
+                "A-C-D 10 x 30 + 30 x 1.5 + 4 x 30 x 2 = 585, so A-B-D at 420"
             ),
             expected={
                 "time_route": "A-C-D",
@@ -383,7 +386,7 @@ def _assignment_cases() -> tuple[VerificationCase, ...]:
             requirement="Reported route cost comes from the cost function, fixed cost once",
             description="A half-loaded trip on A-B-D, priced with its exact load.",
             hand_calculation=(
-                "fuel 60 l/h x 2 h = 120 l; arcs 10 x 20 + 30 x 2 + 120 x 2 = 500; "
+                "fuel 6 l/km x 20 km = 120 l; arcs 10 x 20 + 30 x 2 + 120 x 2 = 500; "
                 "fixed 2 x 175 + 3 x 175 + 7 x 2 = 889; total 500 + 889 = 1389"
             ),
             expected={"fuel_l": 120.0, "fixed_cost_eur": 889.0, "reported_total_cost_eur": 1389.0},
@@ -408,14 +411,14 @@ def _assignment_cases() -> tuple[VerificationCase, ...]:
             requirement="A rounded search load leaves reported cost exact",
             description="170 t of 350 t searches at ratio 0.5 and is priced at 170/350.",
             hand_calculation=(
-                "ratio 170/350 = 0.485714; fuel 40 + 20 x 0.485714 / 0.5 = 59.428571 l/h; "
-                "fuel 2 h x 59.428571 = 118.857143 l; arcs 200 + 60 + 237.714286 = 497.714286; "
+                "ratio 170/350 = 0.485714; fuel 4 + 2 x 0.485714 / 0.5 = 5.942857 l/km; "
+                "fuel 20 km x 5.942857 = 118.857143 l; arcs 200 + 60 + 237.714286 = 497.714286; "
                 "fixed 2 x 170 + 3 x 170 + 7 x 2 = 864; total 1361.714286"
             ),
             expected={
                 "routing_loading_ratio": 0.5,
-                "fuel_l": 2 * (40 + 20 * (170 / 350) / 0.5),
-                "reported_total_cost_eur": 200 + 60 + 2 * 2 * (40 + 20 * (170 / 350) / 0.5) + 864,
+                "fuel_l": 20 * (4 + 2 * (170 / 350) / 0.5),
+                "reported_total_cost_eur": 200 + 60 + 2 * 20 * (4 + 2 * (170 / 350) / 0.5) + 864,
             },
             compute=a.rounded_load_actual,
         ),

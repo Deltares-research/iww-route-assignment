@@ -4,7 +4,7 @@ Network: route 1 A-B-D is 20 km at 10 km/h (2 h), route 2 A-C-D is 30 km at 20 k
 (1.5 h), all on CEMT class I. Vessel M1, capacity 350 t, beam 5.05 m. Rates: hourly
 30 EUR/h (labour 10, maintenance 2, insurance 1, interest 4 % x 0.5, depreciation 4,
 port 5, other 6), 10 EUR/km, loading 2 EUR/t, unloading 3 EUR/t, waiting labour 7 EUR/h.
-Scenario: fuel 2 EUR/l, waiting 2 h. Fuel M1 on class I: 40, 60 and 80 l/h at loading
+Scenario: fuel 2 EUR/l, waiting 2 h. Fuel M1 on class I: 4, 6 and 8 l/km at loading
 ratio 0, 0.5 and 1.
 """
 
@@ -67,7 +67,7 @@ COST_INPUTS = CostInputs(
         ),
     ),
     TableFuelConsumptionProvider(
-        [FuelConsumptionObservation("m1-i", "M1", "I", 40.0, 60.0, 80.0, "verification-case")],
+        [FuelConsumptionObservation("m1-i", "M1", "I", 4.0, 6.0, 8.0, "verification-case")],
         [M1],
     ),
     ScenarioCostParameters(

@@ -2,7 +2,7 @@
 
 Rates: hourly 30 EUR/h (labour 10, maintenance 2, insurance 1, interest 4 x 0.5,
 depreciation 4, port 5, other 6), 10 EUR/km. Fuel price 2 EUR/l. M1 on class I burns
-40 l/h empty and 60 l/h half loaded.
+4 l/km empty and 6 l/km half loaded.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ def test_time_and_cost_metrics_choose_different_routes(network, cost_inputs, cat
     assert _route(by_time) == ["A|C", "C|D"]
     assert _route(by_cost) == ["A|B", "B|D"]
     assert by_time.trips.loc[0, "route_weight"] == pytest.approx(1.5)
-    # Route 1 by cost: 200 distance + 30 x 2 h + 40 l/h x 2 h x 2 EUR/l = 420.
+    # Route 1 by cost: 200 distance + 30 x 2 h + 4 l/km x 20 km x 2 EUR/l = 420.
     assert by_cost.trips.loc[0, "route_weight"] == pytest.approx(420.0)
 
 
@@ -51,7 +51,7 @@ def test_reported_cost_adds_fixed_cost_once(network, cost_inputs, catalogue) -> 
     empty, half = trip_table.iloc[0], trip_table.iloc[1]
     assert empty["fixed_cost_eur"] == 0.0
     assert empty["reported_total_cost_eur"] == pytest.approx(420.0)
-    # Half load: 200 + 60 + 60 l/h x 2 h x 2 = 500 on arcs.
+    # Half load: 200 + 60 + 6 l/km x 20 km x 2 = 500 on arcs.
     # Fixed: 2 x 175 + 3 x 175 + 7 EUR/h x 2 h = 889, added once.
     assert half["fixed_cost_eur"] == pytest.approx(889.0)
     assert half["reported_total_cost_eur"] == pytest.approx(1389.0)
@@ -262,3 +262,63 @@ def test_confirmed_ivs_crosswalk_routes_b0x_labels(network, cost_inputs, catalog
     assert trip_table["status"].tolist() == ["success", "vessel_fail"]
     assert trip_table.loc[0, "vessel_rws_class"] == "BO4"
     assert dict(IVS_SK_CODE_CROSSWALK) == {"B01": "BO1", "B02": "BO2", "B04": "BO4"}
+
+
+def test_cost_parts_and_section_attributes_are_reported(cost_inputs, catalogue) -> None:
+    from iww_route_assignment import AssignmentTrips
+
+    # A lock of 0.5 h on B-D. Route A-B-D: 2 h sailing + 0.5 h = 2.5 h.
+    network = make_network(BD={"lock_count": 1, "lock_service_time_h": 0.5})
+    plain = make_trips([make_trip("half", 175.0), make_trip("empty", 0.0)])
+    trips = AssignmentTrips(
+        plain.trips,
+        plain.origins,
+        plain.destinations,
+        departure_times=("2026-03-01 08:00:00", ""),
+    )
+    result = assign_traffic(trips, network, cost_inputs, catalogue, settings=COST)
+    half, empty = result.trips.iloc[0], result.trips.iloc[1]
+    assert result.trips["departure_time"].tolist() == ["2026-03-01 08:00:00", ""]
+    # Half load: distance 20 km x 10 = 200. Time 2.5 h x 30 = 75.
+    # Fuel 6 l/km x 20 km + 6 x 10 km/h x 0.1 x 0.5 h = 123 l x 2 = 246. Fixed 889.
+    assert half["distance_cost_eur"] == pytest.approx(200.0)
+    assert half["time_cost_eur"] == pytest.approx(75.0)
+    assert half["fuel_cost_eur"] == pytest.approx(246.0)
+    assert half["fuel_l"] == pytest.approx(123.0)
+    assert half["lock_passages"] == 1
+    assert half["reported_total_cost_eur"] == pytest.approx(200.0 + 75.0 + 246.0 + 889.0)
+    # Empty: fuel 4 x 20 + 4 x 10 x 0.1 x 0.5 = 82 l. No fixed cost, full operating cost.
+    assert empty["fixed_cost_eur"] == 0.0
+    assert empty["reported_total_cost_eur"] == pytest.approx(200.0 + 75.0 + 164.0)
+    parts = result.trips[["distance_cost_eur", "time_cost_eur", "fuel_cost_eur", "fixed_cost_eur"]]
+    np.testing.assert_allclose(parts.sum(axis=1), result.trips["reported_total_cost_eur"])
+
+    edges = result.trip_edges[result.trip_edges["voyage_index"] == 0]
+    assert edges["arc_id"].tolist() == ["A|B", "B|D"]
+    assert edges["distance_km"].tolist() == [10.0, 10.0]
+    assert edges["speed_km_per_h"].tolist() == [10.0, 10.0]
+    assert edges["lock_count"].tolist() == [0, 1]
+    assert edges["lock_time_h"].tolist() == [0.0, 0.5]
+    assert edges["time_cost_eur"].tolist() == pytest.approx([30.0, 45.0])
+    assert edges["fuel_cost_eur"].tolist() == pytest.approx([120.0, 126.0])
+    every = result.trip_edges
+    section_parts = every[["distance_cost_eur", "time_cost_eur", "fuel_cost_eur"]].sum(axis=1)
+    np.testing.assert_allclose(section_parts, every["reported_cost_eur"])
+    for name in ("distance_cost_eur", "time_cost_eur", "fuel_cost_eur"):
+        per_trip = every.groupby("voyage_index")[name].sum()
+        np.testing.assert_allclose(per_trip, result.trips[name])
+        assert result.intensity[name].sum() == pytest.approx(result.trips[name].sum())
+    with pytest.raises(ValidationError, match="departure_times must align"):
+        AssignmentTrips(plain.trips, plain.origins, plain.destinations, departure_times=("x",))
+
+
+def test_trip_table_has_the_same_columns_when_nothing_is_routed(
+    network, cost_inputs, catalogue
+) -> None:
+    routed = assign_traffic(make_trips([make_trip("ok", 0.0)]), network, cost_inputs, catalogue)
+    failed = assign_traffic(
+        make_trips([make_trip("unknown", 0.0, vessel="B04")]), network, cost_inputs, catalogue
+    )
+    assert set(failed.trips.columns) == set(routed.trips.columns)
+    assert failed.trips["reported_total_cost_eur"].isna().all()
+    assert failed.trip_edges.empty
