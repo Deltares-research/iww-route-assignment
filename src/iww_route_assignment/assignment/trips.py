@@ -25,17 +25,24 @@ TRIP_PENDING = "pending"
 
 @dataclass(frozen=True, slots=True, eq=False)
 class AssignmentTrips:
-    """Validated trips with their origin and destination points, in the same order."""
+    """Validated trips with their origin and destination points, in the same order.
+
+    ``departure_times`` is optional ISO text per trip. It is carried to the outputs and
+    never used for routing.
+    """
 
     trips: tuple[TripObservation, ...]
     origins: gpd.GeoSeries
     destinations: gpd.GeoSeries
     rejections: tuple[TripRejection, ...] = ()
     excluded_duplicate_rows: int = 0
+    departure_times: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not (len(self.trips) == len(self.origins) == len(self.destinations)):
             raise ValidationError("trips, origins and destinations must align")
+        if self.departure_times and len(self.departure_times) != len(self.trips):
+            raise ValidationError("departure_times must align with trips")
         if self.origins.crs is None or self.destinations.crs is None:
             raise ValidationError("origins and destinations need a CRS")
 
@@ -156,6 +163,7 @@ def prepare_trips(
             {
                 "voyage_index": index,
                 "trip_id": trip.source_row_id,
+                "departure_time": trips.departure_times[index] if trips.departure_times else "",
                 "source_vessel_class": trip.vessel_rws_class,
                 "vessel_rws_class": catalogue.resolve_class(trip.vessel_rws_class),
                 "appearance": appearance,

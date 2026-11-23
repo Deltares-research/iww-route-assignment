@@ -25,6 +25,8 @@ class AssignmentSettings:
     function, ``travel_time`` uses time only. Both report the full cost of the chosen route.
     ``routing_ratio_step`` rounds the loading ratio used for the search, so trips can
     share one search. Reported costs always use the exact loading ratio.
+    ``departure_column`` names the trip start time. It is copied to the outputs when the
+    column exists and is never used for routing.
     """
 
     metric: RouteCostMetric = RouteCostMetric.TRAVEL_COST_EUR
@@ -32,6 +34,7 @@ class AssignmentSettings:
     points_crs: str = "EPSG:28992"
     origin_column: str = "Eerste_Geom"
     destination_column: str = "Laatste_Geom"
+    departure_column: str | None = "Eerste_Tijdstip"
     max_snap_distance_m: float | None = None
     on_missing_cost: MissingCostPolicy = MissingCostPolicy.REJECT
     n_workers: int = 1

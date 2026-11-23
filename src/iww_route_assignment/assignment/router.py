@@ -37,13 +37,38 @@ EDGE_COLUMNS = (
     *PENALTY_COLUMNS,
     "penalty_total_h",
     "reported_time_h",
+    "distance_cost_eur",
+    "time_cost_eur",
+    "fuel_cost_eur",
     "reported_cost_eur",
     "choice_cost_eur",
     "fuel_l",
-    "fuel_rate_l_per_h",
+    "fuel_rate_l_per_km",
     "fuel_method",
     "fuel_confidence",
 )
+
+TRIP_RESULT_COLUMNS = (
+    "n_edges",
+    "distance_km",
+    "route_weight",
+    "reported_time_h",
+    "choice_time_h",
+    "fuel_l",
+    "lock_passages",
+    "distance_cost_eur",
+    "time_cost_eur",
+    "fuel_cost_eur",
+    "fixed_cost_eur",
+    "reported_total_cost_eur",
+    "choice_total_cost_eur",
+    "total_cost_eur",
+    "penalty_total_h",
+    "penalised_section_count",
+    "fuel_lowest_confidence",
+    "cost_rate_source",
+)
+"""Trip columns filled for a routed trip. They exist, empty, when no trip is routed."""
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -58,6 +83,11 @@ class RoutingContext:
     settings: AssignmentSettings
     penalties: NavigabilityPenalties
     preferences: RoutePreferences
+    lock_count: npt.NDArray[np.int64] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        counts = np.array([edge.lock_count for edge in self.network.edges], dtype=np.int64)
+        object.__setattr__(self, "lock_count", counts)
 
 
 @dataclass(slots=True)
@@ -174,10 +204,15 @@ def _record_edges(
         columns[name].append(profile.hours[kind][edges])
     columns["penalty_total_h"].append(profile.total_h[edges])
     columns["reported_time_h"].append(price.arcs.reported_time_h)
+    columns["distance_cost_eur"].append(price.arcs.distance_cost_eur)
+    columns["time_cost_eur"].append(price.arcs.time_cost_eur)
+    columns["fuel_cost_eur"].append(
+        price.arcs.sailing_fuel_cost_eur + price.arcs.idle_fuel_cost_eur
+    )
     columns["reported_cost_eur"].append(price.arcs.reported_variable_cost_eur)
     columns["choice_cost_eur"].append(price.arcs.choice_cost_eur)
     columns["fuel_l"].append(price.arcs.sailing_fuel_l + price.arcs.idle_fuel_l)
-    columns["fuel_rate_l_per_h"].append(np.array([f.fuel_rate_l_per_h for f in price.fuels]))
+    columns["fuel_rate_l_per_km"].append(np.array([f.fuel_rate_l_per_km for f in price.fuels]))
     columns["fuel_method"].append(np.array([f.method.value for f in price.fuels], dtype=object))
     columns["fuel_confidence"].append(
         np.array([f.confidence.value for f in price.fuels], dtype=object)
@@ -226,7 +261,7 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
                 profile.total_h,
                 rates=rates,
                 scenario=context.cost_inputs.scenario,
-                fuel_rate_l_per_h=np.array([f.fuel_rate_l_per_h for f in fuels]),
+                fuel_rate_l_per_km=np.array([f.fuel_rate_l_per_km for f in fuels]),
             )
         else:
             weights = search_weights(metric, context.travel, profile.total_h)
@@ -281,6 +316,12 @@ def route_group(context: RoutingContext, rows: pd.DataFrame, caches: _Caches) ->
                     "reported_time_h": float(price.arcs.reported_time_h.sum()),
                     "choice_time_h": float(price.arcs.choice_time_h.sum()),
                     "fuel_l": float((price.arcs.sailing_fuel_l + price.arcs.idle_fuel_l).sum()),
+                    "lock_passages": int(context.lock_count[edges].sum()),
+                    "distance_cost_eur": float(price.arcs.distance_cost_eur.sum()),
+                    "time_cost_eur": float(price.arcs.time_cost_eur.sum()),
+                    "fuel_cost_eur": float(
+                        (price.arcs.sailing_fuel_cost_eur + price.arcs.idle_fuel_cost_eur).sum()
+                    ),
                     "fixed_cost_eur": price.trip.fixed_cost_eur,
                     "reported_total_cost_eur": price.trip.reported_total_cost_eur,
                     "choice_total_cost_eur": price.trip.choice_total_cost_eur,
