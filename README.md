@@ -18,7 +18,7 @@ Pre-alpha. The first work package implements an auditable monetary cost core and
 
 ## Quick start
 
-Requires Python 3.12 or later.
+Requires Python 3.13 or later.
 
 ```powershell
 poetry install --extras dev

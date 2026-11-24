@@ -7,14 +7,13 @@ name = "iww-route-assignment"
 version = "0.4.0"
 description = "Auditable inland-waterway route assignment modelling"
 readme = "README.md"
-requires-python = ">=3.12,!=3.14.1"
+requires-python = ">=3.13,!=3.14.1"
 license = { file = "LICENSE" }
 authors = [{ name = "Deltares research and development" }]
 keywords = ["inland-waterways", "routing", "transport", "assignment"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Typing :: Typed",
 ]
@@ -63,14 +62,14 @@ fail_under = 90
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py313"
 extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
 select = ["B", "E", "F", "I", "N", "UP"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 strict = true
 packages = ["iww_route_assignment"]
 mypy_path = "src"
