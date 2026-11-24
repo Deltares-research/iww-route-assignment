@@ -159,7 +159,7 @@ def _trip_records(
                 "confidence": trip.fuel_lowest_confidence,
             }
         if other_trips is not None and str(trip.trip_id) in other_route:
-            alt = other_trips.loc[trip.trip_id]
+            alt = other_trips.loc[str(trip.trip_id)]
             record["alt"] = {
                 "e": other_route[str(trip.trip_id)],
                 "km": _number(alt["distance_km"], 1),
