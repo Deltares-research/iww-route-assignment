@@ -20,6 +20,7 @@ import pandas as pd
 from shapely import Point
 
 from iww_route_assignment import (
+    AssignmentResult,
     AssignmentSettings,
     AssignmentTrips,
     CostInputs,
@@ -161,19 +162,28 @@ def example_trips() -> AssignmentTrips:
     )
 
 
-def main() -> None:
-    euris = build_euris_inputs(example_graph(), example_structures(LOCK_WIDTH_M))
+def run(metric: RouteCostMetric = METRIC, lock_width_m: float = LOCK_WIDTH_M) -> AssignmentResult:
+    """Assign the three trips with the given route metric and lock width."""
+    euris = build_euris_inputs(example_graph(), example_structures(lock_width_m))
     cost_inputs, catalogue = example_cost_inputs(SCENARIO)
-    result = assign_traffic(
+    return assign_traffic(
         example_trips(),
         euris.network,
         cost_inputs,
         catalogue,
         euris.restrictions,
-        settings=AssignmentSettings(metric=METRIC, points_crs="EPSG:4326"),
+        settings=AssignmentSettings(metric=metric, points_crs="EPSG:4326"),
         penalties=NavigabilityPenalties(beam_h=BEAM_PENALTY_H),
     )
-    routes = result.trip_edges.groupby("trip_id")["to_node"].agg(lambda s: "A-" + "-".join(s))
+
+
+def routes(result: AssignmentResult) -> pd.Series:
+    """Route per trip as node names, for example ``A-B-D``."""
+    return result.trip_edges.groupby("trip_id")["to_node"].agg(lambda s: "A-" + "-".join(s))
+
+
+def main() -> None:
+    result = run()
     table = result.trips.set_index("trip_id")[
         [
             "status",
@@ -185,7 +195,7 @@ def main() -> None:
             "total_cost_eur",
             "penalty_total_h",
         ]
-    ].join(routes.rename("route"))
+    ].join(routes(result).rename("route"))
     with pd.option_context(
         "display.width", 200, "display.max_columns", None, "display.float_format", "{:,.1f}".format
     ):
