@@ -1,4 +1,9 @@
-"""Prepare cargo-independent fuel observations from an explicitly selected source."""
+"""Prepare cargo-independent fuel observations from an explicitly selected source.
+
+The source is the CE Delft STREAM table of energy use per vessel class and waterway class
+at light, medium and heavy load. Its values are megajoules per kilometre. The library
+works in litres per kilometre, so the unit of the source must be stated on every call.
+"""
 
 from __future__ import annotations
 
@@ -18,13 +23,18 @@ _RAW_COLUMNS = {
     "diesel_heavy",
 }
 
+DIESEL_ENERGY_MJ_PER_L = 36.0
+"""Lower heating value of diesel used to turn megajoules into litres."""
+
+VALUE_UNITS = ("MJ_per_km", "l_per_km")
+
 _OUTPUT_COLUMNS = [
     "source_row_id",
     "vessel_rws_class",
     "waterway_cemt_class",
-    "diesel_light_l_per_h",
-    "diesel_medium_l_per_h",
-    "diesel_heavy_l_per_h",
+    "diesel_light_l_per_km",
+    "diesel_medium_l_per_km",
+    "diesel_heavy_l_per_km",
     "source_dataset",
 ]
 
@@ -34,20 +44,32 @@ def prepare_notebook_fuel_observations(
     container: pd.DataFrame,
     *,
     selected_source: str,
+    value_unit: str,
+    diesel_energy_mj_per_l: float = DIESEL_ENERGY_MJ_PER_L,
     general_source: str = "notebook:general",
     container_source: str = "notebook:container",
 ) -> pd.DataFrame:
     """Select one of the two notebook datasets without filling or merging rows.
+
+    ``value_unit`` states the unit of ``diesel_light``, ``diesel_medium`` and
+    ``diesel_heavy``: ``MJ_per_km`` (the CE Delft source) or ``l_per_km``. Megajoules are
+    divided by ``diesel_energy_mj_per_l`` and the conversion is recorded in
+    ``source_dataset``.
 
     Waterway interpolation is performed by the fuel provider at lookup time. This
     preserves both source rows and the interpolation fraction in result metadata.
     """
     if selected_source not in {"general", "container"}:
         raise ValidationError("selected_source must explicitly be general or container")
+    if value_unit not in VALUE_UNITS:
+        raise ValidationError(f"value_unit must be one of {VALUE_UNITS}; received {value_unit!r}")
+    if not isfinite(diesel_energy_mj_per_l) or diesel_energy_mj_per_l <= 0:
+        raise ValidationError("diesel_energy_mj_per_l must be positive")
+    divisor = diesel_energy_mj_per_l if value_unit == "MJ_per_km" else 1.0
     table, source = (
         (general, general_source) if selected_source == "general" else (container, container_source)
     )
-    result = _normalise_source(table, source)
+    result = _normalise_source(table, source, divisor)
     duplicate = result.duplicated(["vessel_rws_class", "waterway_cemt_class"], keep=False)
     if duplicate.any():
         keys = result.loc[
@@ -69,6 +91,8 @@ def write_notebook_fuel_observations_csv(
     output_path: str | Path,
     *,
     selected_source: str,
+    value_unit: str,
+    diesel_energy_mj_per_l: float = DIESEL_ENERGY_MJ_PER_L,
     general_source: str = "notebook:general",
     container_source: str = "notebook:container",
 ) -> Path:
@@ -79,6 +103,8 @@ def write_notebook_fuel_observations_csv(
         general,
         container,
         selected_source=selected_source,
+        value_unit=value_unit,
+        diesel_energy_mj_per_l=diesel_energy_mj_per_l,
         general_source=general_source,
         container_source=container_source,
     )
@@ -86,13 +112,16 @@ def write_notebook_fuel_observations_csv(
     return output
 
 
-def _normalise_source(table: pd.DataFrame, source_dataset: str) -> pd.DataFrame:
+def _normalise_source(table: pd.DataFrame, source_dataset: str, divisor: float) -> pd.DataFrame:
     missing = sorted(_RAW_COLUMNS.difference(str(column) for column in table.columns))
     if missing:
         raise ValidationError(f"Notebook fuel table is missing columns: {', '.join(missing)}")
     if not source_dataset.strip():
         raise ValidationError("Fuel source dataset must not be empty")
 
+    label = source_dataset.strip()
+    if divisor != 1.0:
+        label = f"{label}; MJ per km divided by {divisor:g} MJ per litre"
     records: list[dict[str, object]] = []
     for _, row in table.iterrows():
         vessel = normalise_rws_class(_required_text(row, "vessel_rws_class"))
@@ -102,10 +131,10 @@ def _normalise_source(table: pd.DataFrame, source_dataset: str) -> pd.DataFrame:
                 "source_row_id": f"{source_dataset}:{vessel}:{waterway}",
                 "vessel_rws_class": vessel,
                 "waterway_cemt_class": waterway,
-                "diesel_light_l_per_h": _required_number(row, "diesel_light"),
-                "diesel_medium_l_per_h": _required_number(row, "diesel_medium"),
-                "diesel_heavy_l_per_h": _required_number(row, "diesel_heavy"),
-                "source_dataset": source_dataset.strip(),
+                "diesel_light_l_per_km": _required_number(row, "diesel_light") / divisor,
+                "diesel_medium_l_per_km": _required_number(row, "diesel_medium") / divisor,
+                "diesel_heavy_l_per_km": _required_number(row, "diesel_heavy") / divisor,
+                "source_dataset": label,
             }
         )
     if not records:

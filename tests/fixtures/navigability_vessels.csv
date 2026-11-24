@@ -1,0 +1,5 @@
+vessel_id,length_m,beam_m,draught_m,air_draught_m,carries_dangerous_goods,source
+m8-loaded,110.0,11.4,3.5,6.5,false,synthetic-test
+m8-empty,110.0,11.4,1.4,,false,synthetic-test
+m6-tanker,85.0,9.5,2.5,6.0,true,synthetic-test
+

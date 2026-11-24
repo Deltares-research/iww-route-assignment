@@ -58,7 +58,7 @@ $env:IWW_VERIFICATION_REPORT = "verification_record.json"
 poetry run pytest tests/verification -q
 ```
 
-The external `generate_verification_report.py` script wraps this and renders a
+The external `verify_report.py` script wraps this and renders a
 dated markdown report named `<yyyymmdd>_cost_function_verification_report.md`.
 
 [Back to contents](#contents)

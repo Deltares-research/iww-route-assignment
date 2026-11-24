@@ -1,5 +1,34 @@
 """Public file and result adapters."""
 
+from .assignment import (
+    ASSIGNMENT_SEGMENT_MAP,
+    IVS_SK_CODE_CROSSWALK,
+    load_assignment_trips_csv,
+    read_assignment_trips,
+    write_assignment_outputs,
+)
+from .bivas import (
+    BIVAS_APPEARANCES,
+    BIVAS_CEMT_COLUMNS,
+    BIVAS_COST_COLUMNS,
+    BIVAS_SHIP_TYPE_COLUMNS,
+    read_bivas_cemt_classes,
+    read_bivas_cost_rates,
+    read_bivas_cost_sets,
+    read_bivas_ship_type_table,
+    read_bivas_ship_types,
+)
+from .checks import largest_hand_difference_eur, module_check_tables
+from .euris import (
+    EurisInputs,
+    EurisLimitRules,
+    EurisStructures,
+    build_euris_inputs,
+    build_euris_structures,
+    load_euris_graph,
+    load_euris_inputs,
+    load_euris_structures,
+)
 from .fuel_preparation import (
     prepare_notebook_fuel_observations,
     write_notebook_fuel_observations_csv,
@@ -26,10 +55,90 @@ from .loaders import (
     load_vessel_references_csv,
     select_cost_rates,
 )
+from .navigability import (
+    load_arc_restrictions_csv,
+    load_navigability_vessels_csv,
+    route_navigability_to_frames,
+)
+from .provenance import run_metadata, sha256_file, to_record, write_json
+from .reference_build import (
+    ParameterSources,
+    build_shared_inputs,
+    compare_ship_type_sources,
+    extract_parameter_tables,
+    fuel_observations_from_energy,
+    read_dtv_vessel_table,
+    read_energy_use_from_notebook,
+)
 from .requests import cost_results_to_frames, load_arc_requests_csv
 from .results import arc_cost_to_record, fuel_resolution_to_record, summarise_fuel_resolutions
+from .viewer import assignment_map_data, write_assignment_map
+from .workflow import (
+    AssignmentConfig,
+    AssignmentInputs,
+    AssignmentPaths,
+    AssignmentRun,
+    assign,
+    filter_trips_by_period,
+    load_assignment_inputs,
+    load_cost_inputs,
+    load_vessel_catalogue,
+    read_trip_frame,
+    run_assignment,
+)
 
 __all__ = [
+    "BIVAS_APPEARANCES",
+    "BIVAS_CEMT_COLUMNS",
+    "BIVAS_COST_COLUMNS",
+    "BIVAS_SHIP_TYPE_COLUMNS",
+    "AssignmentConfig",
+    "AssignmentInputs",
+    "AssignmentPaths",
+    "AssignmentRun",
+    "ParameterSources",
+    "assign",
+    "assignment_map_data",
+    "build_shared_inputs",
+    "compare_ship_type_sources",
+    "extract_parameter_tables",
+    "filter_trips_by_period",
+    "fuel_observations_from_energy",
+    "largest_hand_difference_eur",
+    "load_assignment_inputs",
+    "load_cost_inputs",
+    "load_vessel_catalogue",
+    "module_check_tables",
+    "read_bivas_cemt_classes",
+    "read_bivas_cost_rates",
+    "read_bivas_cost_sets",
+    "read_bivas_ship_type_table",
+    "read_bivas_ship_types",
+    "read_dtv_vessel_table",
+    "read_energy_use_from_notebook",
+    "read_trip_frame",
+    "run_assignment",
+    "run_metadata",
+    "sha256_file",
+    "to_record",
+    "write_assignment_map",
+    "write_json",
+    "ASSIGNMENT_SEGMENT_MAP",
+    "IVS_SK_CODE_CROSSWALK",
+    "EurisInputs",
+    "EurisLimitRules",
+    "EurisStructures",
+    "build_euris_inputs",
+    "build_euris_structures",
+    "load_assignment_trips_csv",
+    "load_euris_graph",
+    "load_euris_inputs",
+    "load_euris_structures",
+    "read_assignment_trips",
+    "write_assignment_outputs",
+    "load_arc_restrictions_csv",
+    "load_navigability_vessels_csv",
+    "route_navigability_to_frames",
     "load_arc_requests_csv",
     "cost_results_to_frames",
     "ARC_REQUEST_COLUMNS",

@@ -4,9 +4,11 @@
 
 1. [Synthetic repository example](#synthetic-repository-example)
 2. [Trip preparation example](#trip-preparation-example)
-3. [Illustrative external case](#illustrative-external-case)
-4. [Verification suite](#verification-suite)
-5. [Benchmark](#benchmark)
+3. [Small real case](#small-real-case)
+4. [Navigability example](#navigability-example)
+5. [Assignment example](#assignment-example)
+6. [Verification suite](#verification-suite)
+7. [Benchmark](#benchmark)
 
 ## Synthetic repository example
 
@@ -30,23 +32,35 @@ poetry run python examples/prepare_ivs_arc_requests.py
 
 The example reads the synthetic trip fixture in `tests/fixtures`, derives arc-cost requests, prints the rejected rows with their reason codes and prints the coverage summary. It uses no private data, so it shows the adapter without an IVS licence.
 
-A real trip register is prepared outside this repository. `prepare_ivs_arcs.py` in the shared IWW scripts folder reads the export, writes the arc-request table, the rejection table and a preparation report, and leaves the case runner unchanged.
+A real trip register is run outside this repository, with a short script that holds the settings and calls `run_assignment`. See [Workflow](workflow.md#one-call).
 
 [Back to contents](#contents)
 
-## Illustrative external case
+## Small real case
 
-The generic `run_cost_case.py` script is in the shared IWW scripts folder. Its only command argument is a case TOML path. All input and output paths are relative to that case file.
+Real data stays outside this repository, so a real case runs from a short external script. It selects a few dozen trips from the register by a written rule, runs `run_assignment` on them, and writes the tables of `module_check_tables` beside the map. The rule should give variation: each main vessel class loaded and empty, each cargo type, a lock, a penalty, and each failure kind.
+
+A case passes when `largest_hand_difference_eur(tables)` stays below `HAND_CHECK_TOLERANCE_EUR`. See [Checking a run](workflow.md#checking-a-run).
+
+[Back to contents](#contents)
+
+## Navigability example
 
 ```powershell
-poetry run python run_cost_case.py my_case/case.toml
+poetry run python examples/check_route_navigability.py
 ```
 
-Every TOML key, the four required input tables, the scenario assumptions and the three generated output files are documented in [Case configuration](configuration.md). Copy the header templates from [`schemas/`](../schemas/README.md) to start a new case.
+The example evaluates the two synthetic routes for three vessel states and prints one summary row per route and vessel, the findings and choice weights in which a blocked arc is infinite. Expected outcomes are hand-checked in `tests/test_navigability.py`. See [Navigability](navigability.md).
 
-The synthetic case under `runs/test_case_cost_function` covers observed, interpolated and proxied fuel rates. It is not the Weurt case.
+[Back to contents](#contents)
 
-The IVS case under `runs/case_ivs_weekmonitor_2023` applies the module to a real trip register. Its README records coverage, every applied assumption and the plausibility check. It is an application case, not a verification.
+## Assignment example
+
+```powershell
+poetry run python examples/assign_synthetic_trips.py
+```
+
+Three trips sail from A to D on a four-node network built in code. The settings at the top of the file choose the metric, the lock width and the beam penalty. By cost the trips take A-B-D. By time, or with a lock narrower than the vessel, they take A-C-D. All tables are made up and labelled as such. `tests/assignment/test_example.py` keeps the example working. See [Traffic assignment](assignment.md).
 
 [Back to contents](#contents)
 

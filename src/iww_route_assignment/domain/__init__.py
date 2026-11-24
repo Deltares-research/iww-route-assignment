@@ -10,11 +10,16 @@ from .classifications import (
 )
 from .enums import (
     Confidence,
+    DuplicateTripRule,
     FuelResolutionMethod,
     FuelResolutionPolicy,
     IvsFormat,
     LoadingCategory,
+    MissingCostPolicy,
+    PenaltyType,
+    RouteCostMetric,
     TripRejectionReason,
+    TripStatus,
 )
 from .models import (
     AppearanceRule,
@@ -34,8 +39,25 @@ from .models import (
     TripRejection,
     VesselReference,
 )
+from .navigability import (
+    ArcNavigability,
+    ArcRestriction,
+    NavigabilityFinding,
+    NavigabilityMargins,
+    NavigabilityVessel,
+    RouteNavigability,
+)
 
 __all__ = [
+    "ArcNavigability",
+    "ArcRestriction",
+    "NavigabilityFinding",
+    "NavigabilityMargins",
+    "NavigabilityStatus",
+    "NavigabilityVessel",
+    "RestrictionType",
+    "RouteNavigability",
+    "StructureType",
     "CEMT_ORDER",
     "AppearanceRule",
     "ArcCostBreakdown",
@@ -51,6 +73,11 @@ __all__ = [
     "LoadingAnchors",
     "LoadingCategory",
     "ResolvedFuelRate",
+    "RouteCostMetric",
+    "DuplicateTripRule",
+    "MissingCostPolicy",
+    "PenaltyType",
+    "TripStatus",
     "RouteSequence",
     "ScenarioCostParameters",
     "TripCostBreakdown",

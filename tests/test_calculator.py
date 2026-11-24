@@ -55,6 +55,25 @@ def test_arc_cost_returns_every_reported_and_choice_component(
     assert result.choice_cost_eur == 333.0
 
 
+@pytest.mark.parametrize("speed_km_per_h", [5.0, 10.0, 20.0])
+def test_sailing_fuel_follows_distance_and_idle_fuel_follows_speed(
+    speed_km_per_h: float, cost_rates, scenario, fuel_provider
+) -> None:
+    fuel = fuel_provider.resolve("M1", "I", loading_category=LoadingCategory.LIGHT)
+    assert fuel.fuel_rate_l_per_km == 4.0
+    arc = ArcTravelInput(
+        distance_km=20.0, realised_speed_km_per_h=speed_km_per_h, lock_service_time_h=1.0
+    )
+    result = calculate_arc_cost(arc, cost_rates, scenario, fuel)
+    # Sailing: 4 l/km x 20 km = 80 l at any speed.
+    assert result.sailing_fuel_l == 80.0
+    assert result.sailing_fuel_cost_eur == 160.0
+    # Idle: 4 l/km x speed is the hourly use; x 0.1 idle factor x 1 h waiting.
+    assert result.idle_fuel_l == pytest.approx(4.0 * speed_km_per_h * 0.1 * 1.0)
+    assert result.idle_fuel_cost_eur == pytest.approx(0.8 * speed_km_per_h)
+    assert result.movement_time_h == pytest.approx(20.0 / speed_km_per_h)
+
+
 def test_interest_rate_is_in_percentage_points(cost_rates, fuel_provider) -> None:
     from iww_route_assignment import ScenarioCostParameters
 

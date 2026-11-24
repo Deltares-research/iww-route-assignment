@@ -1,4 +1,4 @@
-"""Stable enumerations used by the cost module."""
+"""Stable enumerations used by the cost and navigability modules."""
 
 from enum import StrEnum
 
@@ -45,6 +45,13 @@ class Confidence(StrEnum):
     FALLBACK = "fallback"
 
 
+class RouteCostMetric(StrEnum):
+    """Quantity minimised when choosing a route for a vessel."""
+
+    TRAVEL_TIME = "travel_time"
+    TRAVEL_COST_EUR = "travel_cost_eur"
+
+
 class TripRejectionReason(StrEnum):
     """Reason a source trip record could not become an arc-cost request."""
 
@@ -54,3 +61,68 @@ class TripRejectionReason(StrEnum):
     NON_POSITIVE_CAPACITY = "non_positive_capacity"
     UNKNOWN_APPEARANCE = "unknown_appearance"
     INVALID_REQUEST = "invalid_request"
+
+
+class StructureType(StrEnum):
+    """Physical element that carries a navigability restriction on an arc."""
+
+    WATERWAY = "waterway"
+    BRIDGE = "bridge"
+    LOCK = "lock"
+    WEIR = "weir"
+
+
+class RestrictionType(StrEnum):
+    """Hard physical or regulatory restriction checked by the navigability evaluator."""
+
+    LENGTH = "length"
+    BEAM = "beam"
+    DRAUGHT = "draught"
+    AIR_DRAUGHT = "air_draught"
+    DANGEROUS_GOODS = "dangerous_goods"
+    CLOSED = "closed"
+    COVERAGE = "coverage"
+
+
+class NavigabilityStatus(StrEnum):
+    """Outcome of a navigability check, ordered from permissive to blocking."""
+
+    NAVIGABLE = "navigable"
+    UNDETERMINED = "undetermined"
+    NOT_NAVIGABLE = "not_navigable"
+
+
+class PenaltyType(StrEnum):
+    """Reason a route-choice penalty was added to an arc for a vessel state."""
+
+    BEAM = "beam"
+    LENGTH = "length"
+    DRAUGHT = "draught"
+    AIR_DRAUGHT = "air_draught"
+    UNDETERMINED = "undetermined"
+    CEMT = "cemt"
+    SEA = "sea"
+
+
+class TripStatus(StrEnum):
+    """Outcome of assigning one trip to the network."""
+
+    SUCCESS = "success"
+    NO_PATH = "no_path"
+    SNAP_FAIL = "snap_fail"
+    VESSEL_FAIL = "vessel_fail"
+    COST_FAIL = "cost_fail"
+
+
+class MissingCostPolicy(StrEnum):
+    """What to do when a trip has no cost rate or fuel reference."""
+
+    REJECT = "reject"
+    FAIL = "fail"
+
+
+class DuplicateTripRule(StrEnum):
+    """How repeated trip identifiers in a source export are handled."""
+
+    FAIL = "fail"
+    EXCLUDE = "exclude"

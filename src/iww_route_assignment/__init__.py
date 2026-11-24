@@ -1,10 +1,25 @@
 """Auditable inland-waterway route-assignment modelling."""
 
 from .application import CostedArc, CostedTrip, cost_trip_requests
+from .assignment import (
+    AssignmentNetwork,
+    AssignmentResult,
+    AssignmentSettings,
+    AssignmentTrips,
+    CostCoverageReport,
+    CostInputs,
+    NavigabilityPenalties,
+    NetworkEdge,
+    RoutePreferences,
+    VesselCatalogue,
+    assign_traffic,
+    trace_trip,
+)
 from .costs import (
     FallbackFuelConsumptionProvider,
     FuelConsumptionProvider,
     TableFuelConsumptionProvider,
+    calculate_arc_choice_time_h,
     calculate_arc_cost,
     calculate_arc_costs,
     calculate_trip_fixed_cost,
@@ -19,6 +34,7 @@ from .domain import (
     ArcTravelInput,
     Confidence,
     CostRates,
+    DuplicateTripRule,
     FuelConsumptionObservation,
     FuelProxyWeights,
     FuelResolutionMethod,
@@ -26,7 +42,10 @@ from .domain import (
     IvsFormat,
     LoadingAnchors,
     LoadingCategory,
+    MissingCostPolicy,
+    PenaltyType,
     ResolvedFuelRate,
+    RouteCostMetric,
     RouteSequence,
     ScenarioCostParameters,
     TripCostBreakdown,
@@ -36,13 +55,36 @@ from .domain import (
     TripRejection,
     TripRejectionReason,
     TripRoute,
+    TripStatus,
     VesselReference,
+)
+from .domain.enums import NavigabilityStatus, RestrictionType, StructureType
+from .domain.navigability import (
+    ArcNavigability,
+    ArcRestriction,
+    NavigabilityFinding,
+    NavigabilityMargins,
+    NavigabilityVessel,
+    RouteNavigability,
 )
 from .exceptions import (
     DuplicateFuelObservationError,
     FuelCoverageError,
     IWWRouteAssignmentError,
     ValidationError,
+)
+from .io.workflow import (
+    AssignmentConfig,
+    AssignmentPaths,
+    AssignmentRun,
+    run_assignment,
+)
+from .navigability import (
+    build_restriction_index,
+    evaluate_arc,
+    evaluate_route,
+    navigable_arc_mask,
+    restrict_choice_weights,
 )
 from .preparation import (
     DEFAULT_NSTR_APPEARANCE,
@@ -55,6 +97,40 @@ from .preparation import (
 )
 
 __all__ = [
+    "AssignmentConfig",
+    "AssignmentPaths",
+    "AssignmentRun",
+    "run_assignment",
+    "trace_trip",
+    "AssignmentNetwork",
+    "AssignmentResult",
+    "AssignmentSettings",
+    "AssignmentTrips",
+    "CostCoverageReport",
+    "CostInputs",
+    "DuplicateTripRule",
+    "MissingCostPolicy",
+    "NavigabilityPenalties",
+    "NetworkEdge",
+    "PenaltyType",
+    "RoutePreferences",
+    "VesselCatalogue",
+    "TripStatus",
+    "assign_traffic",
+    "ArcNavigability",
+    "ArcRestriction",
+    "NavigabilityFinding",
+    "NavigabilityMargins",
+    "NavigabilityStatus",
+    "NavigabilityVessel",
+    "RestrictionType",
+    "RouteNavigability",
+    "StructureType",
+    "build_restriction_index",
+    "evaluate_arc",
+    "evaluate_route",
+    "navigable_arc_mask",
+    "restrict_choice_weights",
     "CostedArc",
     "CostedTrip",
     "cost_trip_requests",
@@ -80,6 +156,7 @@ __all__ = [
     "LoadingAnchors",
     "LoadingCategory",
     "ResolvedFuelRate",
+    "RouteCostMetric",
     "RouteSequence",
     "ScenarioCostParameters",
     "TableFuelConsumptionProvider",
@@ -96,6 +173,7 @@ __all__ = [
     "VesselReference",
     "build_route_index",
     "build_vessel_type_index",
+    "calculate_arc_choice_time_h",
     "calculate_arc_cost",
     "calculate_arc_costs",
     "calculate_trip_fixed_cost",
@@ -104,4 +182,4 @@ __all__ = [
     "trips_to_arc_requests",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"

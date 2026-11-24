@@ -35,7 +35,7 @@ EMPTY_TRIP_APPEARANCE = "overig"
 """Appearance used for a trip that is recorded as empty and carries no cargo code.
 
 An empty vessel has no cargo, so no cargo class can be observed. The residual
-class supplies the cost rates for the voyage. The rule is an assumption and is
+class supplies the cost rates for the trip. The rule is an assumption and is
 reported as one.
 """
 
@@ -114,17 +114,27 @@ def appearance_for_trip(
     """Return the cargo appearance and its source label for one trip."""
     if trip.appearance:
         return trip.appearance, trip.appearance_source
-    if trip.containers_teu is not None and trip.containers_teu > 0:
+    return appearance_for_cargo(trip.cargo_code, trip.cargo_t, trip.containers_teu, appearance_map)
+
+
+def appearance_for_cargo(
+    cargo_code: str,
+    cargo_t: float | None,
+    containers_teu: float | None,
+    appearance_map: Mapping[str, AppearanceRule],
+) -> tuple[str, str]:
+    """Return the cargo appearance and its source label for a cargo description."""
+    if containers_teu is not None and containers_teu > 0:
         return CONTAINER_APPEARANCE, CONTAINER_APPEARANCE_SOURCE
-    chapter = trip.cargo_code.strip()
+    chapter = cargo_code.strip()
     if not chapter:
-        if trip.cargo_t == 0.0:
+        if cargo_t == 0.0:
             return EMPTY_TRIP_APPEARANCE, EMPTY_TRIP_APPEARANCE_ASSUMPTION
         raise ValidationError("cargo_code is empty and the trip is not recorded as empty")
     key = chapter[0]
     rule = appearance_map.get(key)
     if rule is None:
-        raise ValidationError(f"No appearance mapping for cargo_code {trip.cargo_code!r}")
+        raise ValidationError(f"No appearance mapping for cargo_code {cargo_code!r}")
     return rule.appearance, f"{rule.source}:chapter={key}"
 
 

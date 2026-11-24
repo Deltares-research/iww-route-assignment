@@ -26,7 +26,8 @@ _RWS_ALIASES = {
 
 # Convoy labels end in a length/beam letter written in either case by different sources,
 # for example BII-2b (IVS) and BII-2B (DTV). Only the letter case is canonicalised here;
-# different codes such as B04 and BO4 are never treated as the same class.
+# different codes such as B04 and BO4 are never treated as the same class here. A confirmed
+# crosswalk is applied explicitly, see io.IVS_SK_CODE_CROSSWALK.
 _CONVOY_SUFFIX = re.compile(r"^(BII-\d|C\d)([LB])$")
 
 _CEMT_ALIASES = {
