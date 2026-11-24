@@ -124,11 +124,14 @@ def _trip_records(
     route = {str(trip): [int(i) for i in indices] for trip, indices in routes}
     other_route: dict[str, list[int]] = {}
     other_label = ""
-    other_trips = None
+    other_rows: dict[str, Mapping[Any, Any]] = {}
     if other is not None:
         grouped = other.trip_edges.sort_values(["trip_id", "seq"]).groupby("trip_id")["edge_index"]
         other_route = {str(trip): [int(i) for i in indices] for trip, indices in grouped}
-        other_trips = other.trips.set_index("trip_id")
+        other_rows = {
+            str(trip_id): row
+            for trip_id, row in other.trips.set_index("trip_id").to_dict("index").items()
+        }
         other_label = str(other.trips["route_metric"].iloc[0])
     labels = dict(trip_labels or {})
     records = []
@@ -158,8 +161,8 @@ def _trip_records(
                 "penalty_h": _number(trip.penalty_total_h, 0),
                 "confidence": trip.fuel_lowest_confidence,
             }
-        if other_trips is not None and str(trip.trip_id) in other_route:
-            alt = other_trips.loc[str(trip.trip_id)]
+        if str(trip.trip_id) in other_route:
+            alt = other_rows[str(trip.trip_id)]
             record["alt"] = {
                 "e": other_route[str(trip.trip_id)],
                 "km": _number(alt["distance_km"], 1),
